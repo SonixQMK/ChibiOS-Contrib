@@ -27,7 +27,7 @@ endif
 include ${CHIBIOS_CONTRIB}/os/hal/ports/SN32/LLD/SN32F24x/GPIO/driver.mk
 include ${CHIBIOS_CONTRIB}/os/hal/ports/SN32/LLD/SN32F24x/USB/driver.mk
 include ${CHIBIOS_CONTRIB}/os/hal/ports/SN32/LLD/SN32F24x/CT/driver.mk
-
+include ${CHIBIOS_CONTRIB}/os/hal/ports/SN32/LLD/SN32F24x/FLASH/driver.mk
 
 # include ${CHIBIOS_CONTRIB}/os/hal/ports/SN32/LLD/SN32F24x/TIM/driver.mk
 # include ${CHIBIOS_CONTRIB}/os/hal/ports/SN32/LLD/SN32F24x/GPIOv3/driver.mk

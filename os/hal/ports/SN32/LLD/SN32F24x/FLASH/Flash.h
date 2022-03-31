@@ -17,12 +17,13 @@
 // Flash Control Register definitions
 #define FLASH_PG										0x00000001
 #define FLASH_PER										0x00000002
-#define FLASH_STARTE									0x00000040
+#define FLASH_START 									0x00000040
 
 // Flash Status Register definitions
 #define FLASH_BUSY									0x00000001
-#define FLASH_PGERR									0x00000004
+#define FLASH_ERR									0x00000004
 
+#define	FLASH_WAIT_FOR_DONE		while ((SN_FLASH->STATUS & FLASH_BUSY) == FLASH_BUSY);
 
 /*_____ M A C R O S ________________________________________________________*/
 
@@ -31,14 +32,16 @@
 #define	__FLASH_LPM_SLOW_MODE				SN_FLASH->LPCTRL = 0x5AFA0002
 
 //Flash Status
-#define	__FLASH_CLEAR_ERROR_STATUS	SN_FLASH->STATUS &= ~FLASH_PGERR
+#define	__FLASH_CLEAR_ERROR_STATUS	SN_FLASH->STATUS &= ~FLASH_ERR
 
 
 /*_____ D E C L A R A T I O N S ____________________________________________*/
 extern	uint32_t wFLASH_PGRAM[2];
+typedef enum { FLASH_FAIL, FLASH_OKAY} FLASH_Status;
 
-void FLASH_EraseSector (uint32_t);
-uint32_t FLASH_ProgramPage (uint32_t, uint32_t, uint8_t *);
+FLASH_Status FLASH_EraseSector (uint32_t);
+FLASH_Status FLASH_ProgramPage (uint32_t, uint32_t, uint16_t);
+FLASH_Status FLASH_ProgramHalfWord(uint32_t, uint16_t);
 
 
 #endif	/* __SN32F240_FLASH_H */
