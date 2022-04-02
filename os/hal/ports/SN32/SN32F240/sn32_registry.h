@@ -84,9 +84,9 @@
 #define SN32_USART1_HANDLER        Vector74
 #define SN32_USART2_HANDLER        Vector78
 
-#define SN32_USART0_NUMBER         UART0_IRQn
-#define SN32_USART1_NUMBER         UART1_IRQn
-#define SN32_USART2_NUMBER         UART2_IRQn
+#define SN32_USART0_NUMBER         USART0_IRQn
+#define SN32_USART1_NUMBER         USART1_IRQn
+#define SN32_USART2_NUMBER         USART2_IRQn
 
 /*
  * CT16 units.
