@@ -12,8 +12,16 @@
 #include "usbhw.h"
 #include "usbsystem.h"
 
-volatile uint32_t wUSB_EPnOffset[7];
-volatile uint32_t wUSB_EPnMaxPacketsize[7];
+const uint32_t wUSB_EPnOffset[6] = {
+    (uint32_t)(&USB_SRAM_EP0_W0) + EP1_BUFFER_OFFSET_VALUE, (uint32_t)(&USB_SRAM_EP0_W0) + EP2_BUFFER_OFFSET_VALUE,
+    (uint32_t)(&USB_SRAM_EP0_W0) + EP3_BUFFER_OFFSET_VALUE, (uint32_t)(&USB_SRAM_EP0_W0) + EP4_BUFFER_OFFSET_VALUE,
+    (uint32_t)(&USB_SRAM_EP0_W0) + EP5_BUFFER_OFFSET_VALUE, (uint32_t)(&USB_SRAM_EP0_W0) + EP6_BUFFER_OFFSET_VALUE};
+
+const uint32_t wUSB_EPnMaxPacketSize[7] = {
+    USB_EP0_PACKET_SIZE, USB_EP1_PACKET_SIZE, 
+    USB_EP2_PACKET_SIZE, USB_EP3_PACKET_SIZE,
+    USB_EP4_PACKET_SIZE, USB_EP5_PACKET_SIZE,
+    USB_EP6_PACKET_SIZE};
 
 /*****************************************************************************
 * Function		: USB_Init
@@ -31,7 +39,6 @@ volatile uint32_t wUSB_EPnMaxPacketsize[7];
 *****************************************************************************/
 void USB_Init	(void)
 {
-    volatile uint32_t	*pRam;
     uint32_t 	wTmp, i;
 
     /* Initialize clock and Enable USB PHY. */
@@ -46,25 +53,6 @@ void USB_Init	(void)
     USB_EPnBufferOffset(4,EP4_BUFFER_OFFSET_VALUE);
     USB_EPnBufferOffset(5,EP5_BUFFER_OFFSET_VALUE);
     USB_EPnBufferOffset(6,EP6_BUFFER_OFFSET_VALUE);
-
-    /* Initialize EP1~EP6 RAM point address to array(wUSB_EPnOffset).*/
-    pRam = &wUSB_EPnOffset[0];
-    *(pRam+0) = (uint32_t)(&USB_SRAM_EP0_W0) + EP1_BUFFER_OFFSET_VALUE;
-    *(pRam+1) = (uint32_t)(&USB_SRAM_EP0_W0) + EP2_BUFFER_OFFSET_VALUE;
-    *(pRam+2) = (uint32_t)(&USB_SRAM_EP0_W0) + EP3_BUFFER_OFFSET_VALUE;
-    *(pRam+3) = (uint32_t)(&USB_SRAM_EP0_W0) + EP4_BUFFER_OFFSET_VALUE;
-    *(pRam+4) = (uint32_t)(&USB_SRAM_EP0_W0) + EP5_BUFFER_OFFSET_VALUE;
-    *(pRam+5) = (uint32_t)(&USB_SRAM_EP0_W0) + EP6_BUFFER_OFFSET_VALUE;
-
-    /* Initialize EP0~EP6 package size to array(wUSB_EPnPacketsize).*/
-    pRam = &wUSB_EPnMaxPacketsize[0];
-    *(pRam+0) = USB_EP0_PACKET_SIZE;
-    *(pRam+1) = USB_EP1_PACKET_SIZE;
-    *(pRam+2) = USB_EP2_PACKET_SIZE;
-    *(pRam+3) = USB_EP3_PACKET_SIZE;
-    *(pRam+4) = USB_EP4_PACKET_SIZE;
-    *(pRam+5) = USB_EP5_PACKET_SIZE;
-    *(pRam+6) = USB_EP6_PACKET_SIZE;
 
     /* Enable the USB Interrupt */
     SN_USB->INTEN = (mskBUS_IE|mskUSB_IE|mskUSB_BUSWK_IE);

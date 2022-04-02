@@ -239,8 +239,8 @@
 #define USB_EP5                                 0x5
 #define USB_EP6                                 0x6
 
-extern volatile uint32_t wUSB_EPnOffset[];
-extern volatile uint32_t wUSB_EPnMaxPacketSize[];
+extern const uint32_t wUSB_EPnOffset[];
+extern const uint32_t wUSB_EPnMaxPacketSize[];
 
 /* USB Hardware Functions */
 extern void USB_Init(void);

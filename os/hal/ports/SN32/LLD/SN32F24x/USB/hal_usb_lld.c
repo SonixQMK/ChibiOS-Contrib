@@ -531,9 +531,7 @@ void handleNAK(USBDriver *usbp, usbep_t ep) {
 
     if(out)
 	{
-		// By acking next OUT token from host we are allowing reception
-        // of the data from host
-        USB_EPnAck(ep, 0);
+        // no ack required here
     }
     else
     {
