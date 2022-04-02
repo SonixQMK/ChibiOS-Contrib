@@ -36,12 +36,11 @@
 
 
 /*_____ D E C L A R A T I O N S ____________________________________________*/
-extern	uint32_t wFLASH_PGRAM[2];
 typedef enum { FLASH_FAIL, FLASH_OKAY} FLASH_Status;
 
 FLASH_Status FLASH_EraseSector (uint32_t);
-FLASH_Status FLASH_ProgramPage (uint32_t, uint32_t, uint16_t);
-FLASH_Status FLASH_ProgramWord(uint32_t, uint16_t);
+FLASH_Status FLASH_ProgramPage (uint32_t, uint32_t, uint32_t);
+FLASH_Status FLASH_ProgramDWord(uint32_t, uint32_t);
 
 
 #endif	/* __SN32F240_FLASH_H */
