@@ -42,13 +42,13 @@ FLASH_Status FLASH_EraseSector (uint32_t adr)
     // never touch the jumploader
     if (adr < SN32_JUMPLOADER_SIZE) return FLASH_FAIL;
 
-        SN_FLASH->CTRL = FLASH_PER;					// Page Erase Enabled
-        SN_FLASH->ADDR = adr;									// Page Address  
-        SN_FLASH->CTRL |= FLASH_START;				// Start Erase
+    SN_FLASH->CTRL = FLASH_PER;					// Page Erase Enabled
+    SN_FLASH->ADDR = adr;									// Page Address  
+    SN_FLASH->CTRL |= FLASH_START;				// Start Erase
 
-        FLASH_WAIT_FOR_DONE
+    FLASH_WAIT_FOR_DONE
 
-        return (FLASH_OKAY);
+    return (FLASH_OKAY);
 }
 
 
@@ -67,28 +67,28 @@ FLASH_Status FLASH_ProgramPage (uint32_t adr, uint32_t sz, uint32_t Data)
     // never touch the jumploader
     if (adr < SN32_JUMPLOADER_SIZE) return FLASH_FAIL;
 
-        while (sz) {
+    while (sz) {
 
-            SN_FLASH->CTRL = FLASH_PG;                          // Programming Enabled
-            SN_FLASH->ADDR = adr;
-            SN_FLASH->DATA = Data;
+        SN_FLASH->CTRL = FLASH_PG;                          // Programming Enabled
+        SN_FLASH->ADDR = adr;
+        SN_FLASH->DATA = Data;
 
-            __NOP();__NOP();__NOP();__NOP();__NOP();__NOP();    //Must add to avoid Hard Fault!!!!!!
+        __NOP();__NOP();__NOP();__NOP();__NOP();__NOP();    //Must add to avoid Hard Fault!!!!!!
 
-            FLASH_WAIT_FOR_DONE
+        FLASH_WAIT_FOR_DONE
 
-            // Check for Errors
-            if ((SN_FLASH->STATUS & FLASH_ERR) == FLASH_ERR) {
-                SN_FLASH->STATUS &= ~FLASH_ERR;
-                return (FLASH_FAIL);
-            }
-
-            // Go to next Word
-            adr += 4;
-            sz  -= 4;
+        // Check for Errors
+        if ((SN_FLASH->STATUS & FLASH_ERR) == FLASH_ERR) {
+            SN_FLASH->STATUS &= ~FLASH_ERR;
+            return (FLASH_FAIL);
         }
 
-        return (FLASH_OKAY);
+        // Go to next Word
+        adr += 4;
+        sz  -= 4;
+    }
+
+    return (FLASH_OKAY);
 }
 
 /*****************************************************************************
