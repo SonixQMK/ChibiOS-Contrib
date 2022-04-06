@@ -29,16 +29,16 @@
  */
 const PALConfig pal_default_config = {
   #if SN32_HAS_GPIOA
-  {VAL_GPIOA_MODE},
+  {.mode = VAL_GPIOA_MODE, .cfg = VAL_GPIOA_CFG},
   #endif
   #if SN32_HAS_GPIOB
-  {VAL_GPIOB_MODE},
+  {.mode = VAL_GPIOB_MODE, .cfg = VAL_GPIOB_CFG},
   #endif
   #if SN32_HAS_GPIOC
-  {VAL_GPIOC_MODE},
+  {.mode = VAL_GPIOC_MODE, .cfg = VAL_GPIOC_CFG},
   #endif
   #if SN32_HAS_GPIOD
-  {VAL_GPIOD_MODE},
+  {.mode = VAL_GPIOD_MODE, .cfg = VAL_GPIOD_CFG},
   #endif
 };
 #endif
@@ -61,7 +61,6 @@ void __early_init(void) {
  * @brief   Board-specific initialization code.
  * @todo    Add your board-specific code, if any.
  */
-
 void boardInit(void) {
 
   SN_SYS0->EXRSTCTRL_b.RESETDIS = 1; // Disable RESET
