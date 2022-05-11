@@ -213,7 +213,7 @@ static void usb_lld_serve_interrupt(USBDriver *usbp) {
     /* Get Interrupt Status and clear immediately. */
     iwIntFlag = SN32_USB->INSTS;
     /* Keep only PRESETUP & ERR_SETUP flags. */
-    SN32_USB->INSTSC &= ~(mskEP0_PRESETUP | mskERR_SETUP);
+    SN32_USB->INSTSC = ~(mskEP0_PRESETUP | mskERR_SETUP);
 
     if (iwIntFlag == 0) {
         //@20160902 add for EMC protection
