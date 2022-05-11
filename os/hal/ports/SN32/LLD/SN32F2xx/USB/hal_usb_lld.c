@@ -212,10 +212,8 @@ static void usb_lld_serve_interrupt(USBDriver *usbp) {
 
     /* Get Interrupt Status and clear immediately. */
     iwIntFlag = SN32_USB->INSTS;
-    /* Keep only PRESETUP & ERR_SETUP & ACK and NAK flags. */
-    SN32_USB->INSTSC = ~(mskEP0_PRESETUP|mskERR_SETUP 
-                            |mskEP6_ACK|mskEP5_ACK|mskEP4_ACK|mskEP3_ACK|mskEP2_ACK|mskEP1_ACK
-                            |mskEP6_NAK|mskEP5_NAK|mskEP4_NAK|mskEP3_NAK|mskEP2_NAK|mskEP1_NAK);
+    /* Keep only PRESETUP & ERR_SETUP flags. */
+    SN32_USB->INSTSC &= ~(mskEP0_PRESETUP | mskERR_SETUP);
 
     if (iwIntFlag == 0) {
         //@20160902 add for EMC protection
@@ -465,21 +463,68 @@ void handleACK(USBDriver* usbp, usbep_t ep) {
 void handleNAK(USBDriver *usbp, usbep_t ep) {
     uint8_t out = 0;
 
-    if(ep > 0 && ep <= USB_MAX_ENDPOINTS)
-    {
-        // Determine the interrupting endpoint direction
+    if(ep > 0 && ep <= USB_MAX_ENDPOINTS) {
         out = ( SN32_USB->CFG & mskEPn_DIR(ep) ) == mskEPn_DIR(ep);
     }
     else {
         return;
     }
 
-    if(!out) // ack only required for in endpoints
-    {
-        _usb_isr_invoke_in_cb(usbp, ep);
-    }
 
+    if(out)
+    {
+        // no ack required here
+    }
+    else
+    {
+        // This is not a retransmission, retransmission is transparent and happens on phy layer
+        // NAK happens when host polls IN EP and device has nothing to send
+        // It has been observed that sometimes USB phy doesn't generate ACK (unknown why)
+        // (count ACK interrupts didn't match count of usb_lld_start_in calls per EP)
+        // However while USB transmitting and qmk thread wants to send another packet qmk goes to
+        // infinite sleep, expecting that successfull USB transmission will wake it up
+        // If USB transmission never completes (no ACK) then qmk never wakes up and keyboard locks up
+        // To prevent this every NAK (1ms or 8ms depending on host poll interval) was calling
+        // callbacks and wake up function to wake up qmk thread, however packet was not delivered to host
+        // (for unknown reason) and thus we have seen:
+        // 1) stuck keypresses when usb packets to press key delivered but key release packet lost
+        // 2) untyped key when usb packet to press key was lost but key release packet delivered
+        // Because callback was called every NAK some qmk features didnt work such as CONSOLE
+        // since callback might release buffers and endup in deadlock via disabled interrupts
+        // callback for keyboard is empty thus its repated calling is harmless
+        #if defined(SN32_USB_ORIGINAL_NAK_HANDLING)
+        _usb_isr_invoke_in_cb(usbp, ep);
+        #else
+        //To fake missing ACK we can send 0 sized packet
+        //however (again for unknown reason) packets now being delivered to host as well!
+        //- value 2 has been selected to allow at least 2 NAK delivery (2ms or 16ms depending on
+        //host polling interval) between moment qmk called start_in and moment USB phy actually
+        //started transmission
+        //- value 10 was selected arbitrary.
+        //- values 3-10 we are delivering 0 sized packet trying to get at least one ack
+        if (nakcnt[ep] > 0) {
+            //qmk called start_in
+            if (nakcnt[ep] > 10) {
+                //11-....
+                //consider packet undeliverable but ack it to the qmk
+                nakcnt[ep] = 0;
+                _usb_isr_invoke_in_cb(usbp, ep);
+            }
+            else if (nakcnt[ep] > 2) {
+                //3-10
+                nakcnt[ep]++;
+                EPCTL_SET_STAT_ACK(ep, 0);
+            }
+            else {
+                //1-2
+                //give it sometime to deliver the packet
+                nakcnt[ep]++;
+            }
+        }
+        #endif
+    }
 }
+
 /*===========================================================================*/
 /* Driver interrupt handlers and threads.                                    */
 /*===========================================================================*/
@@ -642,6 +687,8 @@ void usb_lld_init_endpoint(USBDriver *usbp, usbep_t ep) {
             usb_lld_stall_in(usbp, 0);
         }
         else if(ep <= USB_MAX_ENDPOINTS) {
+            /* Set endpoint direction flag in USB configuration register.*/
+            SN32_USB->CFG &= ~mskEPn_DIR(ep);
             /* Set endpoint PMA buffer offset in USB configuration register.*/
             uint32_t buff_addr = usb_pm_alloc(usbp, epcp->in_maxsize);
             USB_SET_BUFFER_OFST(ep,buff_addr);
