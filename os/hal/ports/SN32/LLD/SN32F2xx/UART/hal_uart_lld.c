@@ -267,7 +267,6 @@ static void serve_uart_irq(UARTDriver *uartp) {
         _uart_timeout_isr_code(uartp);
         break;
       case UART_InterruptID_THRE:
-      case UART_InterruptID_TEMT:
         /* Send One Byte.*/
         if (uartp->xfer.tx_len) {
           u->TH = (uint16_t)*uartp->xfer.tx_buf;
@@ -283,6 +282,14 @@ static void serve_uart_irq(UARTDriver *uartp) {
             u->IE &= ~UART_TransmitterHoldingEmpty;
           }
         }
+        break;
+      case UART_InterruptID_TEMT:
+        /* Physical transmission end.*/
+        /* A callback is generated, if enabled, after a completed
+           transfer.*/
+        _uart_tx1_isr_code(uartp);
+        /* End of transmission, a callback is generated.*/
+        _uart_tx2_isr_code(uartp);
         break;
       default:
         break;
@@ -416,7 +423,7 @@ void uart_lld_start(UARTDriver *uartp) {
 #if SN32_UART_USE_UART2
     if (&UARTD2 == uartp) {
       /* UART2 clock enable.*/
-      sys1EnableUART1();
+      sys1EnableUART2();
       nvicClearPending(SN32_UART2_NUMBER);
       nvicEnableVector(SN32_UART2_NUMBER, SN32_UART_UART2_IRQ_PRIORITY);
     }
