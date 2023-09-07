@@ -1,3 +1,9 @@
-PLATFORMSRC += $(CHIBIOS_CONTRIB)/os/hal/ports/SN32/LLD/SN32F2xx/UART/hal_uart_lld.c
+ifeq ($(USE_SMART_BUILD),yes)
+ifneq ($(findstring HAL_USE_UART TRUE,$(HALCONF)),)
+PLATFORMSRC_CONTRIB += $(CHIBIOS_CONTRIB)/os/hal/ports/SN32/LLD/SN32F2xx/UART/hal_uart_lld.c
+endif
+else
+PLATFORMSRC_CONTRIB += $(CHIBIOS_CONTRIB)/os/hal/ports/SN32/LLD/SN32F2xx/UART/hal_uart_lld.c
+endif
 
-PLATFORMINC += $(CHIBIOS_CONTRIB)/os/hal/ports/SN32/LLD/SN32F2xx/UART
+PLATFORMINC_CONTRIB += $(CHIBIOS_CONTRIB)/os/hal/ports/SN32/LLD/SN32F2xx/UART
