@@ -158,7 +158,7 @@ typedef struct {
     struct {
       uint32_t START      : 1;
       uint32_t MODE       : 1;
-      uint32_t AUTORESTART : 1
+      uint32_t AUTORESTART : 1;
       uint32_t            : 5;
       uint32_t ABEOIFC    : 1;
       uint32_t ABTOIFC    : 1;

@@ -428,7 +428,7 @@ struct UARTDriver {
   /**
    * @brief Pointer to the UART registers block.
    */
-  UART_TypeDef             *uart;
+  sn32_uart_t              *uart;
   /**
    * @brief Default receive buffer while into @p UART_RX_IDLE state.
    */

@@ -263,6 +263,21 @@
 /* Driver data structures and types.                                         */
 /*===========================================================================*/
 
+#if SN32_HAS_UART0
+#define SN32_UART0_BASE  SN_UART0_BASE
+#define SN32_UART0       ((sn32_uart_t *)SN_UART0_BASE)
+#endif
+
+#if SN32_HAS_UART1
+#define SN32_UART1_BASE  SN_UART1_BASE
+#define SN32_UART1       ((sn32_uart_t *)SN_UART1_BASE)
+#endif
+
+#if SN32_HAS_UART2
+#define SN32_UART2_BASE  SN_UART2_BASE
+#define SN32_UART2       ((sn32_uart_t *)SN_UART2_BASE)
+#endif
+
 /**
  * @brief   SN32 Serial Driver configuration structure.
  * @details An instance of this structure must be passed to @p sdStart()
@@ -318,7 +333,7 @@ typedef struct {
   uint8_t                   ob[SERIAL_BUFFERS_SIZE];                        \
   /* End of the mandatory fields.*/                                         \
   /* Pointer to the UART registers block.*/                                 \
-  UART_TypeDef              *uart;                                          \
+  sn32_uart_t              *uart;                                           \
   /* Mask to be applied on received frames.*/                               \
   uint8_t                   rxmask;
 

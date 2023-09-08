@@ -75,7 +75,7 @@ static uartflags_t translate_errors(uint32_t ls) {
     sts |= UART_FRAMING_ERROR;
   if (ls & UART_LineStatus_BI)
     sts |= UART_BREAK_DETECTED;
-  if (sr & UART_LineStatus_RDR)
+  if (ls & UART_LineStatus_RDR)
     sts |= UART_NOISE_ERROR;
   return sts;
 }
@@ -114,7 +114,7 @@ static void uart_stop(UARTDriver *uartp) {
 static void uart_start(UARTDriver *uartp) {
   uint32_t divider, apbclock;
   uint8_t dlm, dll, divaddval, mulval, oversampling;
-  UART_TypeDef *u = uartp->uart;
+  sn32_uart_t *u = uartp->uart;
 
   uart_stop(uartp);
 
@@ -129,10 +129,10 @@ static void uart_start(UARTDriver *uartp) {
 #endif
 
   // Check constraints based on oversampling value
-  if (oversampling == OVERSAMPLING_8) {
+  if (oversampling == 8) {
       chDbgAssert(oversampling * uartp->config->UART_BaudRate <= apbclock / 8,
                   "Invalid oversampling configuration for requested baud rate");
-  } else if (oversampling == OVERSAMPLING_16) {
+  } else if (oversampling == 16) {
       chDbgAssert(oversampling * uartp->config->UART_BaudRate <= apbclock / 16,
                   "Invalid oversampling configuration for requested baud rate");
   }
@@ -145,27 +145,23 @@ static void uart_start(UARTDriver *uartp) {
   dlm = (uint8_t)(divider >> 8);
   dll = (uint8_t)(divider & 0xFF);
 
+  // Calculate fractional part
+  uint32_t fractional_part = (rounded_sum % (uartp->config->UART_BaudRate *
+         oversampling)) * (uartp->config->UART_WordLength + 1) * oversampling;
+
+  // Calculate DIVADDVAL and MULVAL
+  divaddval = (uint8_t)((fractional_part >> 4) & 0x0F);
+  mulval = (uint8_t)(fractional_part & 0x0F);
+
   // Check and adjust DLL value if needed
   if (divaddval > 0 && dlm == 0 && dll < 3) {
       dll = 3;  // Set to the minimum value
   }
 
-  // Calculate DIVADDVAL and MULVAL
-  uint32_t fractional_part = (rounded_sum % (baudrate * oversampling)) *
-            (uartp->config->UART_WordLength + 1) * oversampling;
-  divaddval = (uint8_t)((fractional_part >> 4) & 0x0F);
-
   // Check and adjust MULVAL if needed
-  mulval = (uint8_t)(fractional_part & 0x0F);
   if (mulval - divaddval == 2) {
       mulval++;  // Adjust mulval to satisfy the condition
   }
-
-  // Calculate fractional part
-  uint32_t fractional_part = (rounded_sum % (uartp->config->UART_BaudRate *
-         oversampling)) * (uartp->config->UART_WordLength + 1) * oversampling;
-  divaddval = (uint8_t)((fractional_part >> 4) & 0x0F);
-  mulval = (uint8_t)(fractional_part & 0x0F);
 
   // Update the registers
   u->LC |= UART_Divisor_Latch_Access_Enable;
@@ -205,7 +201,7 @@ static void uart_start(UARTDriver *uartp) {
  * @param[in] uartp     pointer to the @p UARTDriver object
  */
 static void serve_uart_irq(UARTDriver *uartp) {
-  UART_TypeDef *u = uartp->uart;
+  sn32_uart_t *u = uartp->uart;
   uint32_t ls;
   uint8_t rbyte;
   uint32_t int_ii;
@@ -309,15 +305,15 @@ static void serve_uart_irq(UARTDriver *uartp) {
 /*===========================================================================*/
 
 #if SN32_UART_USE_UART0 || defined(__DOXYGEN__)
-#if !defined(SN32_UART0_IRQ_VECTOR)
-#error "SN32_UART0_IRQ_VECTOR not defined"
+#if !defined(SN32_UART0_HANDLER)
+#error "SN32_UART0_HANDLER not defined"
 #endif
 /**
  * @brief   UART0 IRQ handler.
  *
  * @isr
  */
-OSAL_IRQ_HANDLER(SN32_UART0_IRQ_VECTOR) {
+OSAL_IRQ_HANDLER(SN32_UART0_HANDLER) {
 
   OSAL_IRQ_PROLOGUE();
 
@@ -328,8 +324,8 @@ OSAL_IRQ_HANDLER(SN32_UART0_IRQ_VECTOR) {
 #endif /* SN32_UART_USE_UART0 */
 
 #if SN32_UART_USE_UART1 || defined(__DOXYGEN__)
-#if !defined(SN32_UART1_IRQ_VECTOR)
-#error "SN32_UART1_IRQ_VECTOR not defined"
+#if !defined(SN32_UART1_HANDLER)
+#error "SN32_UART0_HANDLER not defined"
 #endif
 /**
  * @brief   UART1 IRQ handler.
@@ -347,15 +343,15 @@ OSAL_IRQ_HANDLER(SN32_UART1_IRQ_VECTOR) {
 #endif /* SN32_UART_USE_UART1 */
 
 #if SN32_UART_USE_UART2 || defined(__DOXYGEN__)
-#if !defined(SN32_UART2_IRQ_VECTOR)
-#error "SN32_UART2_IRQ_VECTOR not defined"
+#if !defined(SN32_UART2_HANDLER)
+#error "SN32_UART2_HANDLER not defined"
 #endif
 /**
  * @brief   UART2 IRQ handler.
  *
  * @isr
  */
-OSAL_IRQ_HANDLER(SN32_UART2_IRQ_VECTOR) {
+OSAL_IRQ_HANDLER(SN32_UART2_HANDLER) {
 
   OSAL_IRQ_PROLOGUE();
 
@@ -378,17 +374,17 @@ void uart_lld_init(void) {
 
 #if SN32_UART_USE_UART0
   uartObjectInit(&UARTD0);
-  UARTD0.uart = UART0;
+  UARTD0.uart = SN32_UART0;
 #endif
 
 #if SN32_UART_USE_UART1
   uartObjectInit(&UARTD1);
-  UARTD1.uart = UART1;
+  UARTD1.uart = SN32_UART1;
 #endif
 
 #if SN32_UART_USE_UART2
   uartObjectInit(&UARTD2);
-  UARTD2.uart = UART2;
+  UARTD2.uart = SN32_UART2;
 #endif
 }
 
