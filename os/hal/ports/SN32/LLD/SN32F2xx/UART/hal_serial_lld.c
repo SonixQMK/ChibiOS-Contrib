@@ -137,7 +137,7 @@ static void uart_init(SerialDriver *sdp, const SerialConfig *config) {
              config->UART_Parity);
 
   // Set RX trigger level
-  u->FIFOCTRL |= config->UART_FIFOControl;
+  u->FIFOCTRL_b.RXTL = config->UART_FIFOControl;
 
   // Reset FIFO and enable
   u->FIFOCTRL |= (UART_TxFIFO_Reset | UART_RxFIFO_Reset | UART_FIFO_Enable);
@@ -159,10 +159,11 @@ static void uart_init(SerialDriver *sdp, const SerialConfig *config) {
  *
  * @param[in] u         pointer to an UART I/O block
  */
-//static void uart_deinit(sn32_uart_t *u) {
+static void uart_deinit(sn32_uart_t *u) {
 
-//  u->CTRL=0;
-//}
+  u->FIFOCTRL_b.FIFOEN =0;
+  u->CTRL =0;
+}
 
 /**
  * @brief   Error handling routine.
@@ -188,76 +189,67 @@ static void set_error(SerialDriver *sdp, uint8_t ls) {
  * @param[in] sdp       communication channel associated to the UART
  */
 static void serve_interrupt(SerialDriver *sdp) {
-  pal_lld_setport(GPIOB,(1<<5));
-
 #define UART_LS_STATUS (UART_LineStatus_PE | UART_LineStatus_FE | UART_LineStatus_OE)
   sn32_uart_t *u = sdp->uart;
-  uint8_t ls;
+  uint8_t ls = 0;
+  uint8_t int_ii = u->II_b.INTID;
 
-  ls = (uint8_t)u->LS;
-
-  /* Special case, LIN break detection.*/
-  if (ls & UART_LineStatus_BI) {
-    pal_lld_setport(GPIOB,(1<<0));
-    osalSysLockFromISR();
-    chnAddFlagsI(sdp, SD_BREAK_DETECTED);
-    osalSysUnlockFromISR();
-  } else {    pal_lld_clearport(GPIOB,(1<<0));
-  }
-  
-  /* Data available.*/
-  osalSysLockFromISR();
-  while ((ls & UART_LS_STATUS) | ((ls & UART_LineStatus_RDR) != 0)) {
-    uint8_t b;
-
-    /* Error condition detection.*/
-    if (ls & UART_LS_STATUS) {
-      pal_lld_setport(GPIOB,(1<<1));
-      set_error(sdp, ls);
-    }
-    b = (uint8_t)u->RB & sdp->rxmask;
-    if ((ls & UART_LineStatus_RDR) != 0) {
-      pal_lld_setport(GPIOB,(1<<2));
-      sdIncomingDataI(sdp, b);
-    }
+  if((int_ii & UART_InterruptID_Status) == (UART_InterruptID_RDA | UART_InterruptID_RLS)) {
+    ls = (uint8_t)u->LS;
     ls = (uint32_t)u->LS;
-  }
-  osalSysUnlockFromISR();
-  pal_lld_clearport(GPIOB,(1<<1));
-  pal_lld_clearport(GPIOB,(1<<2));
+    /* Special case, LIN break detection.*/
+    if (ls & UART_LineStatus_BI) {
+      osalSysLockFromISR();
+      chnAddFlagsI(sdp, SD_BREAK_DETECTED);
+      osalSysUnlockFromISR();
+    }
+    /* Data available.*/
+    osalSysLockFromISR();
+    while ((ls & UART_LS_STATUS) | ((ls & UART_LineStatus_RDR) != 0)) {
+      uint8_t b;
 
-  /* Transmission buffer empty.*/
-  if (((u->IE & UART_TransmitterHoldingEmpty) != 0)
-      && (ls & UART_LineStatus_THRE) != 0) {
-    msg_t b;
-    pal_lld_setport(GPIOB,(1<<3));
-    osalSysLockFromISR();
-    b = oqGetI(&sdp->oqueue);
-    if (b < MSG_OK) {
-      chnAddFlagsI(sdp, CHN_OUTPUT_EMPTY);
-      u->IE &= ~(UART_TransmitterHoldingEmpty);
+      /* Error condition detection.*/
+      if (ls & UART_LS_STATUS) {
+        set_error(sdp, ls);
+      }
+      b = (uint8_t)u->RB & sdp->rxmask;
+      if ((ls & UART_LineStatus_RDR) != 0) {
+        sdIncomingDataI(sdp, b);
+      }
+      ls = (uint32_t)u->LS; //read to clear interrupt
     }
-    else
-      u->TH = b;
-    (void)u->II;
     osalSysUnlockFromISR();
-  } else {
-    pal_lld_clearport(GPIOB,(1<<3));
   }
-  /* Physical transmission end.*/
-  if (((u->IE & UART_TransmitterEmpty) != 0)
-      && (ls & UART_LineStatus_TEMT) != 0) {
-    pal_lld_setport(GPIOB,(1<<4));
-    osalSysLockFromISR();
-    if (oqIsEmptyI(&sdp->oqueue)) {
-      chnAddFlagsI(sdp, CHN_TRANSMISSION_END);
+  if((int_ii & UART_InterruptID_Status) == (UART_InterruptID_THRE)) {
+    ls = (uint8_t)u->LS;
+    /* Transmission buffer empty.*/
+    if (ls & UART_LineStatus_THRE) {
+      msg_t b;
+      osalSysLockFromISR();
+      b = oqGetI(&sdp->oqueue);
+      if (b < MSG_OK) {
+        chnAddFlagsI(sdp, CHN_OUTPUT_EMPTY);
+        u->IE &= ~(UART_TransmitterHoldingEmpty);
+      }
+      else
+        u->TH = b;
+      (void)u->II; //read to clear interrupt
+      osalSysUnlockFromISR();
     }
-    (void)u->II;
-    osalSysUnlockFromISR();
-  } else {
-    pal_lld_clearport(GPIOB,(1<<4));
   }
-  pal_lld_clearport(GPIOB,(1<<5));
+  if((int_ii & UART_InterruptID_Status) == (UART_InterruptID_TEMT)) {
+    ls = (uint8_t)u->LS;
+    /* Physical transmission end.*/
+    if (ls & UART_LineStatus_TEMT) {
+      osalSysLockFromISR();
+      if (oqIsEmptyI(&sdp->oqueue)) {
+        chnAddFlagsI(sdp, CHN_TRANSMISSION_END);
+      }
+      (void)u->II; //read to clear interrupt
+      osalSysUnlockFromISR();
+    }
+  }
+
 }
 
 #if SN32_SERIAL_USE_UART0 || defined(__DOXYGEN__)
@@ -428,7 +420,7 @@ void sd_lld_start(SerialDriver *sdp, const SerialConfig *config) {
 void sd_lld_stop(SerialDriver *sdp) {
 
   if (sdp->state == SD_READY) {
- //   uart_deinit(sdp->uart);
+    uart_deinit(sdp->uart);
 #if SN32_SERIAL_USE_UART0
     if (&SD0 == sdp) {
       /* UART0 DeInit.*/
