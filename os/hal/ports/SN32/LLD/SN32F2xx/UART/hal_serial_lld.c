@@ -196,7 +196,6 @@ static void serve_interrupt(SerialDriver *sdp) {
 
   if((int_ii & UART_InterruptID_Status) == (UART_InterruptID_RDA | UART_InterruptID_RLS)) {
     ls = (uint8_t)u->LS;
-    ls = (uint32_t)u->LS;
     /* Special case, LIN break detection.*/
     if (ls & UART_LineStatus_BI) {
       osalSysLockFromISR();
@@ -244,6 +243,7 @@ static void serve_interrupt(SerialDriver *sdp) {
       osalSysLockFromISR();
       if (oqIsEmptyI(&sdp->oqueue)) {
         chnAddFlagsI(sdp, CHN_TRANSMISSION_END);
+        u->IE &= ~(UART_TransmitterEmpty);
       }
       (void)u->II; //read to clear interrupt
       osalSysUnlockFromISR();
@@ -256,7 +256,7 @@ static void serve_interrupt(SerialDriver *sdp) {
 static void notify0(io_queue_t *qp) {
 
   (void)qp;
-  SN32_UART0->IE |= UART_TransmitterHoldingEmpty;
+  SN32_UART0->IE |= (UART_TransmitterHoldingEmpty | UART_TransmitterEmpty);
 }
 #endif
 
@@ -264,7 +264,7 @@ static void notify0(io_queue_t *qp) {
 static void notify1(io_queue_t *qp) {
 
   (void)qp;
-  SN32_UART1->IE |= UART_TransmitterHoldingEmpty;
+  SN32_UART1->IE |= (UART_TransmitterHoldingEmpty | UART_TransmitterEmpty);
 }
 #endif
 
@@ -272,7 +272,7 @@ static void notify1(io_queue_t *qp) {
 static void notify2(io_queue_t *qp) {
 
   (void)qp;
-  SN32_UART2->IE |= UART_TransmitterHoldingEmpty;
+  SN32_UART2->IE |= (UART_TransmitterHoldingEmpty | UART_TransmitterEmpty);
 }
 #endif
 
