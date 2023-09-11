@@ -194,8 +194,6 @@ static void set_error(SerialDriver *sdp, uint8_t ls) {
     sts |= SD_PARITY_ERROR;
   if (ls & UART_LineStatus_FE)
     sts |= SD_FRAMING_ERROR;
-  if (ls & UART_LineStatus_OE)
-    sts |= SD_OVERRUN_ERROR;
   chnAddFlagsI(sdp, sts);
 }
 
@@ -206,66 +204,66 @@ static void set_error(SerialDriver *sdp, uint8_t ls) {
  */
 static void serve_interrupt(SerialDriver *sdp) {
   writePinHigh(B8);
-#define UART_LS_STATUS (UART_LineStatus_PE | UART_LineStatus_FE | UART_LineStatus_OE)
+#define UART_LS_STATUS (UART_LineStatus_PE | UART_LineStatus_FE)
   sn32_uart_t *u = sdp->uart;
   uint8_t ls = 0;
   uint32_t ii_buf= u->II;
 
+  //while ((ii_buf & UART_Interrupt_Status) == UART_Interrupt_Pending) {
     if ((ii_buf & UART_Interrupt_Status) == UART_Interrupt_Pending) writePinHigh(B0);
     // Get Interrupt ID
     uint8_t int_id = ((ii_buf >> 1) & UART_InterruptID_Status);
-    // Debug
-    uprintf("int_id %d \n",int_id);
-    // Get Line Status
-    ls = (uint8_t)u->LS;
-    // Debug
-    uprintf("ls %d \n",ls);
 
-    while (int_id  == UART_InterruptID_RLS || int_id == UART_InterruptID_RDA) {
-      //Debug
+    uprintf("int_id %d \n",int_id);
+
+    if (int_id == UART_InterruptID_RDA || int_id == UART_InterruptID_RLS || int_id == UART_InterruptID_THRE || int_id == UART_InterruptID_TEMT) {
+      ls = (uint8_t)u->LS;
       if (int_id  == UART_InterruptID_RLS) writePinHigh(B10);
       if (int_id  == UART_InterruptID_RDA) writePinHigh(B9);
-
-      /* Special case, LIN break detection.*/
-      if (ls & UART_LineStatus_BI) {
-        writePinHigh(B2);
-        osalSysLockFromISR();
-        chnAddFlagsI(sdp, SD_BREAK_DETECTED);
-        ls = (uint8_t)u->LS;
-        osalSysUnlockFromISR();
-      }
-      // Debug
-      uprintf("ls1 %d \n",ls);
-
-      /* Error condition detection.*/
-      if (ls & UART_LS_STATUS) {
-        writePinHigh(B4);
-        osalSysLockFromISR();
-        set_error(sdp, ls);
-        ls = (uint8_t)u->LS;
-        osalSysUnlockFromISR();
-      }
+      uprintf("ls %d \n",ls);
 
       /* Data available.*/
-      if (ls & UART_LineStatus_RDR) {
-        uint8_t b;
-        writePinHigh(B3);
-        osalSysLockFromISR();
-        b = (uint8_t)u->RB_b.RB & sdp->rxmask;
-        sdIncomingDataI(sdp, b);
-        osalSysUnlockFromISR();
-      }
-      ii_buf= u->II;
-      int_id = ((ii_buf >> 1) & UART_InterruptID_Status);
-      // Debug
-      uprintf("ls3 %d \n",ls);
-    }
-    if ((int_id == UART_InterruptID_THRE) && (ls & UART_LineStatus_THRE)) {
+      //osalSysLockFromISR();
+      //if (ls & (UART_LS_STATUS | UART_LineStatus_RDR | UART_LineStatus_BI | UART_LineStatus_OE | UART_LineStatus_RxError)) {
+         /* Special case, Overrun Error detection.*/
+        if (ls & UART_LineStatus_OE) {
+          writePinHigh(B1);
+          osalSysLockFromISR();
+          chnAddFlagsI(sdp, SD_OVERRUN_ERROR);
+          osalSysUnlockFromISR();
+        }
+        if(ls & (UART_LineStatus_RxError | UART_LineStatus_BI | UART_LS_STATUS)) {
+          /* Special case, LIN break detection.*/
+          if (ls & UART_LineStatus_BI) {
+            writePinHigh(B2);
+            osalSysLockFromISR();
+            chnAddFlagsI(sdp, SD_BREAK_DETECTED);
+            osalSysUnlockFromISR();
+          }
+          /* Error condition detection.*/
+          if (ls & UART_LS_STATUS) {
+            writePinHigh(B4);
+            osalSysLockFromISR();
+            set_error(sdp, ls);
+            osalSysUnlockFromISR();
+          }
+          // read to clear errors
+          ls = (uint32_t)u->LS;
+        }
+        /* Data available.*/
+        if (ls & UART_LineStatus_RDR) {
+          uint8_t b;
+          writePinHigh(B3);
+          osalSysLockFromISR();
+          b = (uint8_t)u->RB_b.RB & sdp->rxmask;
+          sdIncomingDataI(sdp, b);
+          osalSysUnlockFromISR();
+        }
+      //}
+      //osalSysUnlockFromISR();
+
       /* Transmission buffer empty.*/
       if (ls & UART_LineStatus_THRE) {
-        // Debug
-        uprintf("ls4 %d \n",ls);
-
         writePinHigh(B5);
         msg_t b;
         osalSysLockFromISR();
@@ -278,8 +276,6 @@ static void serve_interrupt(SerialDriver *sdp) {
           u->TH_b.TH = b;
         osalSysUnlockFromISR();
       }
-    }
-    if ((int_id == UART_InterruptID_TEMT) && (ls & UART_LineStatus_TEMT)) {
       /* Physical transmission end.*/
       if (ls & UART_LineStatus_TEMT) {
         writePinHigh(B6);
@@ -293,7 +289,7 @@ static void serve_interrupt(SerialDriver *sdp) {
     }
     // Update interrupt buffer
     ii_buf= u->II;
-
+  //}
   writePinLow(B0);
   if (!(ls & UART_LineStatus_RDR)) writePinLow(B3);
   if (!(ls & UART_LineStatus_BI)) writePinLow(B2);
