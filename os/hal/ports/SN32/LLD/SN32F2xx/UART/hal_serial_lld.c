@@ -23,7 +23,8 @@
  */
 
 #include "hal.h"
-
+#include "matrix.h"
+#include "print.h"
 #if HAL_USE_SERIAL || defined(__DOXYGEN__)
 
 /*===========================================================================*/
@@ -73,7 +74,8 @@ static const SerialConfig default_config = {SERIAL_DEFAULT_BITRATE,
  * @param[in] config    the architecture-dependent serial driver configuration
  */
 static void uart_init(SerialDriver *sdp, const SerialConfig *config) {
-  uint32_t divider, apbclock;
+  //uint32_t divider, apbclock;
+  uint32_t apbclock;
   uint8_t dlm, dll, divaddval, mulval, oversampling;
   sn32_uart_t *u = sdp->uart;
 
@@ -95,7 +97,7 @@ static void uart_init(SerialDriver *sdp, const SerialConfig *config) {
       chDbgAssert(oversampling * config->speed <= apbclock / 16,
                   "Invalid oversampling configuration for requested baud rate");
   }
-
+/*
   // Calculate divider
   uint32_t rounded_sum = apbclock + (config->speed >> 1);
   divider = rounded_sum / (config->speed * oversampling);
@@ -105,8 +107,7 @@ static void uart_init(SerialDriver *sdp, const SerialConfig *config) {
   dll = (uint8_t)(divider & 0xFF);
 
   // Calculate fractional part
-  uint32_t fractional_part = (rounded_sum % (config->speed * oversampling)) *
-            (config->UART_WordLength + 1) * oversampling;
+  uint32_t fractional_part = (rounded_sum % (config->speed * oversampling));
 
   // Calculate DIVADDVAL and MULVAL
   divaddval = (uint8_t)((fractional_part >> 4) & 0x0F);
@@ -121,32 +122,46 @@ static void uart_init(SerialDriver *sdp, const SerialConfig *config) {
   if (mulval - divaddval == 2) {
       mulval++;  // Adjust mulval to satisfy the condition
   }
-
-  mulval = (uint8_t)(fractional_part & 0x0F);
-
+*/
+  dll=200;
+  dlm=0;
+  divaddval=1;
+  mulval=5;
   // Update the registers
-  u->LC |= UART_Divisor_Latch_Access_Enable;
-  u->DLL = dll;
-  u->DLM = dlm;
-  u->FD_b.DIVADDVAL = divaddval;
-  u->FD_b.MULVAL = mulval;
-  u->FD_b.OVER8 = (oversampling == UART_Oversample_8) ? 1 : 0;
-  u->LC &= ~(UART_Divisor_Latch_Access_Enable);
+  //u->LC |= UART_Divisor_Latch_Access_Enable;
+  u->LC_b.DLAB = 1;
+//  if(u->LC_b.DLAB) writePinHigh(B1);
+  u->DLL_b.DLL = dll;
+  u->DLM_b.DLM = dlm;
+  u->FD = (UART_FD_MULVAL(mulval) | UART_FD_DIVADDVAL(divaddval));
+  u->FD_b.OVER8 = (oversampling == 8) ? 1 : 0;
+  //u->LC &= ~(UART_Divisor_Latch_Access_Enable);
+  u->LC_b.DLAB = 0;
 
   u->LC = (config->UART_WordLength | config->UART_StopBits |
              config->UART_Parity);
 
   // Set RX trigger level
   u->FIFOCTRL_b.RXTL = config->UART_FIFOControl;
+  u->ABCTRL |= (UART_AutoBaudControl_Timeout | UART_AutoBaudControl_End);
 
   // Reset FIFO and enable
   u->FIFOCTRL |= (UART_TxFIFO_Reset | UART_RxFIFO_Reset | UART_FIFO_Enable);
 
   // Enable UART
-  u->CTRL = (UART_TxEnable | UART_RxEnable | UART_Enable);
+  //u->CTRL = (UART_TxEnable | UART_RxEnable | UART_Enable);
 
   /* Note that some bits are enforced.*/
   u->IE |= (UART_ReceiveDataAvailable | UART_ReceiveLine);
+  u->CTRL_b.TXEN = 1;
+  u->CTRL_b.RXEN = 1;
+  u->CTRL_b.UARTEN = 1;
+  u->IE_b.TEMTIE = 1;
+  u->IE_b.RLSIE = 1;
+  u->IE_b.THREIE = 1;
+  u->IE_b.RDAIE = 1;
+  u->IE_b.ABTOIE = 0;
+  u->IE_b.ABEOIE = 0;
 
   /* Deciding mask to be applied on the data register on receive,
      this is required in order to mask out the parity bit.*/
@@ -162,6 +177,7 @@ static void uart_init(SerialDriver *sdp, const SerialConfig *config) {
 static void uart_deinit(sn32_uart_t *u) {
 
   u->FIFOCTRL_b.FIFOEN =0;
+  //u->LC_b.BC=1;
   u->CTRL =0;
 }
 
@@ -174,8 +190,6 @@ static void uart_deinit(sn32_uart_t *u) {
 static void set_error(SerialDriver *sdp, uint8_t ls) {
   eventflags_t sts = 0;
 
-  if (ls & UART_LineStatus_OE)
-    sts |= SD_OVERRUN_ERROR;
   if (ls & UART_LineStatus_PE)
     sts |= SD_PARITY_ERROR;
   if (ls & UART_LineStatus_FE)
@@ -189,66 +203,103 @@ static void set_error(SerialDriver *sdp, uint8_t ls) {
  * @param[in] sdp       communication channel associated to the UART
  */
 static void serve_interrupt(SerialDriver *sdp) {
-#define UART_LS_STATUS (UART_LineStatus_PE | UART_LineStatus_FE | UART_LineStatus_OE)
+  writePinHigh(B8);
+#define UART_LS_STATUS (UART_LineStatus_PE | UART_LineStatus_FE)
   sn32_uart_t *u = sdp->uart;
   uint8_t ls = 0;
-  uint8_t int_ii = u->II_b.INTID;
+  uint32_t ii_buf= u->II;
 
-  if((int_ii & UART_InterruptID_Status) == (UART_InterruptID_RDA | UART_InterruptID_RLS)) {
-    ls = (uint8_t)u->LS;
-    /* Special case, LIN break detection.*/
-    if (ls & UART_LineStatus_BI) {
-      osalSysLockFromISR();
-      chnAddFlagsI(sdp, SD_BREAK_DETECTED);
-      osalSysUnlockFromISR();
-    }
-    /* Data available.*/
-    osalSysLockFromISR();
-    while ((ls & UART_LS_STATUS) | ((ls & UART_LineStatus_RDR) != 0)) {
-      uint8_t b;
+  //while ((ii_buf & UART_Interrupt_Status) == UART_Interrupt_Pending) {
+    if ((ii_buf & UART_Interrupt_Status) == UART_Interrupt_Pending) writePinHigh(B0);
+    // Get Interrupt ID
+    uint8_t int_id = ((ii_buf >> 1) & UART_InterruptID_Status);
 
-      /* Error condition detection.*/
-      if (ls & UART_LS_STATUS) {
-        set_error(sdp, ls);
+    uprintf("int_id %d \n",int_id);
+
+    if (int_id == UART_InterruptID_RDA || int_id == UART_InterruptID_RLS || int_id == UART_InterruptID_THRE || int_id == UART_InterruptID_TEMT) {
+      ls = (uint8_t)u->LS;
+      if (int_id  == UART_InterruptID_RLS) writePinHigh(B10);
+      if (int_id  == UART_InterruptID_RDA) writePinHigh(B9);
+      uprintf("ls %d \n",ls);
+
+      /* Data available.*/
+      //osalSysLockFromISR();
+      //if (ls & (UART_LS_STATUS | UART_LineStatus_RDR | UART_LineStatus_BI | UART_LineStatus_OE | UART_LineStatus_RxError)) {
+         /* Special case, Overrun Error detection.*/
+        if (ls & UART_LineStatus_OE) {
+          writePinHigh(B1);
+          osalSysLockFromISR();
+          chnAddFlagsI(sdp, SD_OVERRUN_ERROR);
+          osalSysUnlockFromISR();
+        }
+        if(ls & (UART_LineStatus_RxError | UART_LineStatus_BI | UART_LS_STATUS)) {
+          /* Special case, LIN break detection.*/
+          if (ls & UART_LineStatus_BI) {
+            writePinHigh(B2);
+            osalSysLockFromISR();
+            chnAddFlagsI(sdp, SD_BREAK_DETECTED);
+            osalSysUnlockFromISR();
+          }
+          /* Error condition detection.*/
+          if (ls & UART_LS_STATUS) {
+            writePinHigh(B4);
+            osalSysLockFromISR();
+            set_error(sdp, ls);
+            osalSysUnlockFromISR();
+          }
+          // read to clear errors
+          ls = (uint32_t)u->LS;
+        }
+        /* Data available.*/
+        if (ls & UART_LineStatus_RDR) {
+          uint8_t b;
+          writePinHigh(B3);
+          osalSysLockFromISR();
+          b = (uint8_t)u->RB_b.RB & sdp->rxmask;
+          sdIncomingDataI(sdp, b);
+          osalSysUnlockFromISR();
+        }
+      //}
+      //osalSysUnlockFromISR();
+
+      /* Transmission buffer empty.*/
+      if (ls & UART_LineStatus_THRE) {
+        writePinHigh(B5);
+        msg_t b;
+        osalSysLockFromISR();
+        b = oqGetI(&sdp->oqueue);
+        if (b < MSG_OK) {
+          chnAddFlagsI(sdp, CHN_OUTPUT_EMPTY);
+          u->IE &= ~(UART_TransmitterHoldingEmpty);
+        }
+        else
+          u->TH_b.TH = b;
+        osalSysUnlockFromISR();
       }
-      b = (uint8_t)u->RB & sdp->rxmask;
-      if ((ls & UART_LineStatus_RDR) != 0) {
-        sdIncomingDataI(sdp, b);
+      /* Physical transmission end.*/
+      if (ls & UART_LineStatus_TEMT) {
+        writePinHigh(B6);
+        osalSysLockFromISR();
+        if (oqIsEmptyI(&sdp->oqueue)) {
+          chnAddFlagsI(sdp, CHN_TRANSMISSION_END);
+          u->IE &= ~(UART_TransmitterEmpty);
+        }
+        osalSysUnlockFromISR();
       }
-      ls = (uint32_t)u->LS; //read to clear interrupt
     }
-    osalSysUnlockFromISR();
-  }
-  if((int_ii & UART_InterruptID_Status) == (UART_InterruptID_THRE)) {
-    ls = (uint8_t)u->LS;
-    /* Transmission buffer empty.*/
-    if (ls & UART_LineStatus_THRE) {
-      msg_t b;
-      osalSysLockFromISR();
-      b = oqGetI(&sdp->oqueue);
-      if (b < MSG_OK) {
-        chnAddFlagsI(sdp, CHN_OUTPUT_EMPTY);
-        u->IE &= ~(UART_TransmitterHoldingEmpty);
-      }
-      else
-        u->TH = b;
-      (void)u->II; //read to clear interrupt
-      osalSysUnlockFromISR();
-    }
-  }
-  if((int_ii & UART_InterruptID_Status) == (UART_InterruptID_TEMT)) {
-    ls = (uint8_t)u->LS;
-    /* Physical transmission end.*/
-    if (ls & UART_LineStatus_TEMT) {
-      osalSysLockFromISR();
-      if (oqIsEmptyI(&sdp->oqueue)) {
-        chnAddFlagsI(sdp, CHN_TRANSMISSION_END);
-        u->IE &= ~(UART_TransmitterEmpty);
-      }
-      (void)u->II; //read to clear interrupt
-      osalSysUnlockFromISR();
-    }
-  }
+    // Update interrupt buffer
+    ii_buf= u->II;
+  //}
+  writePinLow(B0);
+  if (!(ls & UART_LineStatus_RDR)) writePinLow(B3);
+  if (!(ls & UART_LineStatus_BI)) writePinLow(B2);
+  if (!(ls & UART_LS_STATUS)) writePinLow(B4);
+  if (!(ls & UART_LineStatus_OE)) writePinLow(B1);
+  if(!(ls & UART_LineStatus_THRE)) writePinLow(B5);
+  if(!(ls & UART_LineStatus_TEMT)) writePinLow(B6);
+  if (((ii_buf >> 1) & UART_InterruptID_Status) != UART_InterruptID_RLS) writePinLow(B10);
+  if (((ii_buf >> 1) & UART_InterruptID_Status) != UART_InterruptID_RDA) writePinLow(B9);
+  writePinLow(B8);
 
 }
 
@@ -375,6 +426,30 @@ void sd_lld_init(void) {
  * @notapi
  */
 void sd_lld_start(SerialDriver *sdp, const SerialConfig *config) {
+  setPinOutput(B0);
+  setPinOutput(B1);
+  setPinOutput(B2);
+  setPinOutput(B3);
+  setPinOutput(B4);
+  setPinOutput(B5);
+  setPinOutput(B6);
+  setPinOutput(B7);
+  setPinOutput(B8);
+  setPinOutput(B9);
+  setPinOutput(B10);
+
+  writePinLow(B0);
+  writePinLow(B1);
+  writePinLow(B2);
+  writePinLow(B3);
+  writePinLow(B4);
+  writePinLow(B5);
+  writePinLow(B6);
+  writePinLow(B7);
+  writePinLow(B8);
+  writePinLow(B9);
+  writePinLow(B10);
+
 
   if (config == NULL)
     config = &default_config;
@@ -406,6 +481,7 @@ void sd_lld_start(SerialDriver *sdp, const SerialConfig *config) {
 #endif
   }
   uart_init(sdp, config);
+  //SN32_UART0->TH=UINT8_MAX;
 }
 
 /**

@@ -32,6 +32,15 @@
 /*===========================================================================*/
 /* Driver constants.                                                         */
 /*===========================================================================*/
+/**
+ * @brief   Advanced buffering support switch.
+ * @details This constants enables the advanced buffering support in the
+ *          low level driver, the queue buffer is no more part of the
+ *          @p SerialDriver structure, each driver can have a different
+ *          queue size.
+ */
+//#define SERIAL_ADVANCED_BUFFERING_SUPPORT   TRUE
+
 
 /** @defgroup UART_Exported_Constants
   * @{
