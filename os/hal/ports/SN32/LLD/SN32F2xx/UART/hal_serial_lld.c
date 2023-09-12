@@ -74,8 +74,7 @@ static const SerialConfig default_config = {SERIAL_DEFAULT_BITRATE,
  * @param[in] config    the architecture-dependent serial driver configuration
  */
 static void uart_init(SerialDriver *sdp, const SerialConfig *config) {
-  //uint32_t divider, apbclock;
-  uint32_t apbclock;
+  uint32_t divider, apbclock;
   uint8_t dlm, dll, divaddval, mulval, oversampling;
   sn32_uart_t *u = sdp->uart;
 
@@ -97,36 +96,14 @@ static void uart_init(SerialDriver *sdp, const SerialConfig *config) {
       chDbgAssert(oversampling * config->speed <= apbclock / 16,
                   "Invalid oversampling configuration for requested baud rate");
   }
-/*
   // Calculate divider
-  uint32_t rounded_sum = apbclock + (config->speed >> 1);
-  divider = rounded_sum / (config->speed * oversampling);
+  divider = (uint32_t)((apbclock + config->speed/2) / (config->speed * oversampling));
 
-  // Calculate DLM and DLL
-  dlm = (uint8_t)(divider >> 8);
-  dll = (uint8_t)(divider & 0xFF);
+  dlm=(uint8_t)(divider & 0xFF);
+  dll=(uint8_t)(divider >> 8);
+  divaddval=0;
+  mulval=0;
 
-  // Calculate fractional part
-  uint32_t fractional_part = (rounded_sum % (config->speed * oversampling));
-
-  // Calculate DIVADDVAL and MULVAL
-  divaddval = (uint8_t)((fractional_part >> 4) & 0x0F);
-  mulval = (uint8_t)(fractional_part & 0x0F);
-
-  // Check and adjust DLL value if needed
-  if (divaddval > 0 && dlm == 0 && dll < 3) {
-      dll = 3;  // Set to the minimum value
-  }
-
-  // Check and adjust MULVAL if needed
-  if (mulval - divaddval == 2) {
-      mulval++;  // Adjust mulval to satisfy the condition
-  }
-*/
-  dll=200;
-  dlm=0;
-  divaddval=1;
-  mulval=5;
   // Update the registers
   u->LC |= UART_Divisor_Latch_Access_Enable;
   u->DLL_b.DLL = dll;
@@ -134,7 +111,6 @@ static void uart_init(SerialDriver *sdp, const SerialConfig *config) {
   u->FD = (UART_FD_MULVAL(mulval) | UART_FD_DIVADDVAL(divaddval));
   u->FD_b.OVER8 = (oversampling == 8) ? 1 : 0;
   u->LC &= ~(UART_Divisor_Latch_Access_Enable);
-  u->LC_b.DLAB = 0;
 
   u->LC = (config->UART_WordLength | config->UART_StopBits |
              config->UART_Parity);
@@ -164,7 +140,6 @@ static void uart_init(SerialDriver *sdp, const SerialConfig *config) {
  * @param[in] u         pointer to an UART I/O block
  */
 static void uart_deinit(sn32_uart_t *u) {
-  uprintf("UART_DEINIT \n");
   u->FIFOCTRL_b.FIFOEN =0;
   u->CTRL =0;
 }
@@ -271,44 +246,33 @@ static void serve_interrupt(SerialDriver *sdp) {
     // Get Interrupt ID
     uint8_t int_id = ((ii_buf >> 1) & UART_InterruptID_Status);
     ls = (uint8_t)u->LS;
-    osalSysLockFromISR();
-    //debug_shit(int_id,ls);
-    osalSysUnlockFromISR();
+
     /* Special case, LIN break detection.*/
     if (ls & UART_LineStatus_BI) {
       osalSysLockFromISR();
       chnAddFlagsI(sdp, SD_BREAK_DETECTED);
       // Update interrupt buffer
-      //ii_buf= u->II;
-      //int_id = ((ii_buf >> 1) & UART_InterruptID_Status);
       ls = (uint8_t)u->LS;
-      //debug_shit(int_id,ls);
+      osalSysUnlockFromISR();
+    }
+    /* Error Handling.*/
+    if (ls & UART_LS_STATUS) {
+      osalSysLockFromISR();
+      set_error(sdp, ls);
+      ls = (uint8_t)u->LS;
       osalSysUnlockFromISR();
     }
 
-    osalSysLockFromISR();
-    while  (ls & (UART_LS_STATUS | UART_LineStatus_RDR)) {
-      //debug_shit(int_id,ls);
+    /* Data available.*/
+    while  (ls & UART_LineStatus_RDR) {
+      osalSysLockFromISR();
       uint8_t b;
-      if (ls & UART_LS_STATUS) {
-        set_error(sdp, ls);
-        ls = (uint8_t)u->LS;
-      }
-      /* Data available.*/
-      if (ls & UART_LineStatus_RDR) {
-        b = (uint8_t)u->RB_b.RB;
-        uprintf("b received %d \n",b);
-        b &= sdp->rxmask;
-        //uprintf("b processed %d \n",b);
-        sdIncomingDataI(sdp, b);
-        //debug_shit(int_id,ls);
-        ls = (uint8_t)u->LS;
-      }
-      // Update interrupt buffer
-      //ii_buf= u->II;
-      //int_id = ((ii_buf >> 1) & UART_InterruptID_Status);
-      //ls = (uint8_t)u->LS;
-      //debug_shit(int_id,ls);
+      b = (uint8_t)u->RB_b.RB;
+      uprintf("b received %d \n",b);
+      b &= sdp->rxmask;
+      //uprintf("b processed %d \n",b);
+      sdIncomingDataI(sdp, b);
+      ls = (uint8_t)u->LS;
       osalSysUnlockFromISR();
     }
 
@@ -325,24 +289,19 @@ static void serve_interrupt(SerialDriver *sdp) {
         osalSysUnlockFromISR();
         break;
       }
-     // osalSysLockFromISR();
       u->TH_b.TH = (uint8_t)b;
-      //uprintf("b sent %ld \n",b);
-    //  osalSysUnlockFromISR();
+      osalSysUnlockFromISR();
     }
-    //(void)u->II;
   }
 
   /* Physical transmission end.*/
-  if ((u->IE & UART_TransmitterEmpty)&& (ls & UART_LineStatus_TEMT)) {
+  if ((u->IE & UART_TransmitterEmpty) && (ls & UART_LineStatus_TEMT)) {
     osalSysLockFromISR();
     if (oqIsEmptyI(&sdp->oqueue)) {
       chnAddFlagsI(sdp, CHN_TRANSMISSION_END);
       u->IE &= ~(UART_TransmitterEmpty);
     }
     ls = (uint8_t)u->LS;
-    //(void)u->II;
-    //debug_shit(int_id,ls);
     osalSysUnlockFromISR();
   }
   osalSysLockFromISR();
@@ -355,7 +314,6 @@ static void serve_interrupt(SerialDriver *sdp) {
 
 #if SN32_SERIAL_USE_UART0 || defined(__DOXYGEN__)
 static void notify0(io_queue_t *qp) {
-//  uprintf("UART_NOTIFY0 \n");
 
   (void)qp;
   SN32_UART0->IE |= (UART_TransmitterHoldingEmpty | UART_TransmitterEmpty);
