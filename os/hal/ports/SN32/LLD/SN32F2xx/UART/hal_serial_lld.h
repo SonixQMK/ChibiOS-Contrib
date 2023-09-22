@@ -49,9 +49,7 @@
 /** @defgroup UART_LineControl
   * @{
   */
-#define UART_Break_Control_Disable             (0x0<<6)
 #define UART_Break_Control_Enable              (0x1<<6)
-#define UART_Divisor_Latch_Access_Disable      (0x0<<7)
 #define UART_Divisor_Latch_Access_Enable       (0x1<<7)
 #define UART_Parity_None                       (0x0<<3)
 #define UART_Parity_Enable                     (0x1<<3)
