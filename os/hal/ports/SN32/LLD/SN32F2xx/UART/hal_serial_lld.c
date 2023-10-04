@@ -149,7 +149,7 @@ static void uart_deinit(sn32_uart_t *u) {
   u->FIFOCTRL_b.FIFOEN =0;
   u->CTRL =0;
 }
-
+//static void debug_shit(uint8_t int_id, uint8_t ls);
 /**
  * @brief   Error handling routine.
  *
@@ -171,6 +171,90 @@ static void set_error(SerialDriver *sdp, uint8_t ls) {
   chnAddFlagsI(sdp, sts);
 }
 
+static void debug_ii(uint8_t int_id) {
+//  uprintf("id_p %d \n",int_id);
+  switch (int_id) {
+  case UART_InterruptID_RDA:
+      writePinHigh(B9);
+      //uprintf("RDA \n");
+      break;
+  case UART_InterruptID_RLS:
+      writePinHigh(B10);
+      //uprintf("RLS \n");
+      break;
+  case UART_InterruptID_TEMT:
+      writePinHigh(B11);
+      //uprintf("TEMT \n");
+      break;
+  case UART_InterruptID_THRE:
+      writePinHigh(B12);
+      //uprintf("THRE \n");
+      break;
+  case UART_InterruptID_CTI:
+      writePinHigh(B4);
+      //uprintf("CTI \n");
+      break;
+  default:
+     // writePinLow(B6);
+     // writePinLow(B7);
+      writePinLow(B4);
+      writePinLow(B9);
+      writePinLow(B10);
+      writePinLow(B10);
+      writePinLow(B11);
+      writePinLow(B12);
+      break;
+  }
+}
+
+static void debug_shit(uint8_t int_id, uint8_t ls) {
+ // uprintf("ls_p %d \n",ls);
+  debug_ii(int_id);
+  if (ls & UART_LineStatus_RDR) {
+    writePinHigh(B2);
+  } else {
+    writePinLow(B2);
+  }
+  if (ls & UART_LineStatus_THRE) {
+    writePinHigh(B3);
+  } else {
+    writePinLow(B3);
+  }
+  if (ls & UART_LineStatus_TEMT) {
+    writePinHigh(B13);
+  } else {
+    writePinLow(B13);
+  }
+  if (ls & UART_LineStatus_RxError) {
+      writePinHigh(B6);
+    } else {
+      writePinLow(B6);
+  }
+  if (ls & UART_LineStatus_TxError) {
+    uprintf("TxError \n");
+  }
+  if (ls & UART_LineStatus_BI) {
+    writePinHigh(B5);
+  } else {
+    writePinLow(B5);
+  }
+  if (ls & UART_LineStatus_PE) {
+    writePinHigh(B1);
+  } else {
+    writePinLow(B1);
+  }
+  if (ls & UART_LineStatus_FE) {
+    writePinHigh(B7);
+  } else {
+    writePinLow(B7);
+  }
+  if (ls & UART_LineStatus_OE) {
+    writePinHigh(B8);
+  } else {
+    writePinLow(B8);
+  }
+}
+
 /**
  * @brief   Common IRQ handler.
  *
@@ -185,8 +269,10 @@ static void serve_interrupt(SerialDriver *sdp) {
 
   // Get Interrupt ID
   uint8_t int_id = ((ii_buf >> 1) & UART_InterruptID_Status);
+  //while(int_id){
   ls = (uint8_t)u->LS;
-
+  //debug
+  debug_shit(int_id,ls);
   if((int_id == UART_InterruptID_RDA) || (int_id == UART_InterruptID_RLS)) {
   if (ls & UART_LineStatus_BI) {
     osalSysLockFromISR();
@@ -195,7 +281,7 @@ static void serve_interrupt(SerialDriver *sdp) {
     (void)b;
     ii_buf= u->II;
     int_id = ((ii_buf >> 1) & UART_InterruptID_Status);
-    (void)int_id;
+    debug_shit(int_id,ls);
     osalSysUnlockFromISR();
     writePinLow(B0);
     return;
@@ -212,34 +298,47 @@ static void serve_interrupt(SerialDriver *sdp) {
 
     } else {
       if(iqIsEmptyI(&sdp->iqueue)) chnAddFlagsI(sdp, CHN_INPUT_AVAILABLE);
+      debug_shit(int_id,ls);
      // if(u->LS & UART_LineStatus_RDR) {
       if (iqPutI(&sdp->iqueue, b) < MSG_OK)
         chnAddFlagsI(sdp, SD_QUEUE_FULL_ERROR);
       //}
     }
+    debug_shit(int_id,ls);
     osalSysUnlockFromISR();
     //ls = (uint8_t)u->LS;
   }
 } else {
+  //debug
+  debug_shit(int_id,ls);
 
   /* Transmission buffer empty.*/
   if ((u->IE & UART_TransmitterHoldingEmpty) && (ls & UART_LineStatus_THRE)) {//&& !(ls & UART_LineStatus_BI)) {
       msg_t b;
       osalSysLockFromISR();
+      debug_shit(int_id,ls);
 
       b = oqGetI(&sdp->oqueue);
       if (b < MSG_OK) {
         chnAddFlagsI(sdp, CHN_OUTPUT_EMPTY);
         u->IE &= ~(UART_TransmitterHoldingEmpty);
       }
-      else u->TH = b;
+      else {
+        u->TH = b;
+      debug_shit(int_id,ls); }
+      debug_shit(int_id,ls);
+
       osalSysUnlockFromISR();
   }
 
   /* Physical transmission end.*/
   if ((u->IE & UART_TransmitterEmpty) && (ls & UART_LineStatus_TEMT)) {
     osalSysLockFromISR();
+    debug_shit(int_id,ls);
+
     if (oqIsEmptyI(&sdp->oqueue)) {
+      debug_shit(int_id,ls);
+
       chnAddFlagsI(sdp, CHN_TRANSMISSION_END);
       u->IE &= ~(UART_TransmitterEmpty);
     }
@@ -249,7 +348,9 @@ static void serve_interrupt(SerialDriver *sdp) {
 
   ii_buf= u->II;
   int_id = ((ii_buf >> 1) & UART_InterruptID_Status);
-  (void)int_id;
+  //debug
+  debug_shit(int_id,ls);
+  //}
   writePinLow(B0);
 }
 
@@ -390,7 +491,35 @@ void sd_lld_init(void) {
  */
 void sd_lld_start(SerialDriver *sdp, const SerialConfig *config) {
   setPinOutput(B0);
+  setPinOutput(B1);
+  setPinOutput(B2);
+  setPinOutput(B3);
+  setPinOutput(B4);
+  setPinOutput(B5);
+  setPinOutput(B6);
+  setPinOutput(B7);
+  setPinOutput(B8);
+  setPinOutput(B9);
+  setPinOutput(B10);
+  setPinOutput(B11);
+  setPinOutput(B12);
+  setPinOutput(B13);
+
   writePinLow(B0);
+  writePinLow(B1);
+  writePinLow(B2);
+  writePinLow(B3);
+  writePinLow(B4);
+  writePinLow(B5);
+  writePinLow(B6);
+  writePinLow(B7);
+  writePinLow(B8);
+  writePinLow(B9);
+  writePinLow(B10);
+  writePinLow(B11);
+  writePinLow(B12);
+  writePinLow(B13);
+
 
   if (config == NULL)
     config = &default_config;
