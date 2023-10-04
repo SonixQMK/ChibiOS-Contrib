@@ -354,12 +354,25 @@ static void serve_interrupt(SerialDriver *sdp) {
   writePinLow(B0);
 }
 
+static void load(SerialDriver *sdp) {
+  sn32_uart_t *u = sdp->uart;
+  if (u->LS & UART_LineStatus_THRE) {
+    msg_t b;
+    osalSysLock();
+    b = oqGetI(&sdp->oqueue);
+    osalSysUnlock();
+    if (b >= MSG_OK) {
+      u->TH = b;
+    }
+  }
+  u->IE |= (UART_TransmitterHoldingEmpty | UART_TransmitterEmpty);
+}
+
 #if SN32_SERIAL_USE_UART0 || defined(__DOXYGEN__)
 static void notify0(io_queue_t *qp) {
 
   (void)qp;
-  //SN32_UART0->CTRL |=UART_TxEnable;
-  SN32_UART0->IE |= (UART_TransmitterHoldingEmpty | UART_TransmitterEmpty);
+  load(&SD0);
 }
 #endif
 
@@ -367,8 +380,7 @@ static void notify0(io_queue_t *qp) {
 static void notify1(io_queue_t *qp) {
 
   (void)qp;
-  SN32_UART1->CTRL |=UART_TxEnable;
-  SN32_UART1->IE |= (UART_TransmitterHoldingEmpty | UART_TransmitterEmpty);
+  load(&SD1);
 }
 #endif
 
@@ -376,11 +388,9 @@ static void notify1(io_queue_t *qp) {
 static void notify2(io_queue_t *qp) {
 
   (void)qp;
-  SN32_UART2->CTRL |=UART_TxEnable;
-  SN32_UART2->IE |= (UART_TransmitterHoldingEmpty | UART_TransmitterEmpty);
+  load(&SD2);
 }
 #endif
-
 /*===========================================================================*/
 /* Driver interrupt handlers.                                                */
 /*===========================================================================*/
