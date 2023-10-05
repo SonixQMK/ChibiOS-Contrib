@@ -113,25 +113,20 @@ static void uart_init(SerialDriver *sdp, const SerialConfig *config) {
   u->DLL = dll;
 
   u->LC &= ~(UART_Divisor_Latch_Access_Enable);
+  // Disable AutoBaud for serial - not useful
+  u->ABCTRL = UART_AutoBaudControl_None;
 
-//  u->ABCTRL = config->UART_AutoBaudControl;
-
+  // Reset FIFO and enable
   // Set RX trigger level
   u->FIFOCTRL = (UART_FIFO_Enable
                 | UART_RxFIFO_Reset
                 | UART_TxFIFO_Reset
                 | config->UART_FIFOControl);
-  //u->ABCTRL |= (UART_AutoBaudControl_Timeout | UART_AutoBaudControl_End);
-
-  // Reset FIFO and enable
-  //u->FIFOCTRL |= (UART_FIFO_Enable);
 
   /* Note that some bits are enforced.*/
   u->IE = (UART_ReceiveDataAvailable | UART_ReceiveLine);
 
   // Enable UART
-  //u->CTRL &= ~UART_TxEnable; //keep TX disabled
-  //u->CTRL &= ~UART_RxEnable; //keep RX disabled
   u->CTRL = (UART_Enable| UART_RxEnable | UART_TxEnable);
 
   /* Deciding mask to be applied on the data register on receive,
@@ -146,10 +141,12 @@ static void uart_init(SerialDriver *sdp, const SerialConfig *config) {
  * @param[in] u         pointer to an UART I/O block
  */
 static void uart_deinit(sn32_uart_t *u) {
+  // disable FIFOs
   u->FIFOCTRL_b.FIFOEN =0;
+  // disable UART peripheral
   u->CTRL =0;
 }
-//static void debug_shit(uint8_t int_id, uint8_t ls);
+
 /**
  * @brief   Error handling routine.
  *
@@ -159,7 +156,6 @@ static void uart_deinit(sn32_uart_t *u) {
 static void set_error(SerialDriver *sdp, uint8_t ls) {
   eventflags_t sts = 0;
 
- // debug_shit(0,ls);
   if(ls & UART_LineStatus_BI)
     sts |= SD_BREAK_DETECTED;
   if(ls & UART_LineStatus_OE)
@@ -172,31 +168,23 @@ static void set_error(SerialDriver *sdp, uint8_t ls) {
 }
 
 static void debug_ii(uint8_t int_id) {
-//  uprintf("id_p %d \n",int_id);
   switch (int_id) {
   case UART_InterruptID_RDA:
       writePinHigh(B9);
-      //uprintf("RDA \n");
       break;
   case UART_InterruptID_RLS:
       writePinHigh(B10);
-      //uprintf("RLS \n");
       break;
   case UART_InterruptID_TEMT:
       writePinHigh(B11);
-      //uprintf("TEMT \n");
       break;
   case UART_InterruptID_THRE:
       writePinHigh(B12);
-      //uprintf("THRE \n");
       break;
   case UART_InterruptID_CTI:
       writePinHigh(B4);
-      //uprintf("CTI \n");
       break;
   default:
-     // writePinLow(B6);
-     // writePinLow(B7);
       writePinLow(B4);
       writePinLow(B9);
       writePinLow(B10);
@@ -207,7 +195,7 @@ static void debug_ii(uint8_t int_id) {
   }
 }
 
-static void debug_shit(uint8_t int_id, uint8_t ls) {
+static void debug_interrupt(uint8_t int_id, uint8_t ls) {
  // uprintf("ls_p %d \n",ls);
   debug_ii(int_id);
   if (ls & UART_LineStatus_RDR) {
@@ -231,7 +219,9 @@ static void debug_shit(uint8_t int_id, uint8_t ls) {
       writePinLow(B6);
   }
   if (ls & UART_LineStatus_TxError) {
-    uprintf("TxError \n");
+  //  writePinHigh(B4);
+ // } else {
+  //  writePinLow(B4);
   }
   if (ls & UART_LineStatus_BI) {
     writePinHigh(B5);
@@ -261,99 +251,92 @@ static void debug_shit(uint8_t int_id, uint8_t ls) {
  * @param[in] sdp       communication channel associated to the UART
  */
 static void serve_interrupt(SerialDriver *sdp) {
+  // debug handler start
   writePinHigh(B0);
-#define UART_LS_STATUS (UART_LineStatus_PE | UART_LineStatus_FE | UART_LineStatus_OE )//| UART_LineStatus_BI | UART_LineStatus_RxError)
+  // Handled error states
+# define UART_LS_STATUS (UART_LineStatus_PE | UART_LineStatus_FE | UART_LineStatus_OE | UART_LineStatus_BI | UART_LineStatus_RxError)
   sn32_uart_t *u = sdp->uart;
   uint8_t ls = 0;
   uint32_t ii_buf= u->II;
 
-  // Get Interrupt ID
+  // Get Interrupt ID for debug
   uint8_t int_id = ((ii_buf >> 1) & UART_InterruptID_Status);
-  //while(int_id){
+  /* Read LS status */
   ls = (uint8_t)u->LS;
-  //debug
-  debug_shit(int_id,ls);
-  if((int_id == UART_InterruptID_RDA) || (int_id == UART_InterruptID_RLS)) {
+/* Seems to not be required, see below
   if (ls & UART_LineStatus_BI) {
     osalSysLockFromISR();
     chnAddFlagsI(sdp,SD_BREAK_DETECTED);
-    uint8_t b = u->RB;
-    (void)b;
-    ii_buf= u->II;
-    int_id = ((ii_buf >> 1) & UART_InterruptID_Status);
-    debug_shit(int_id,ls);
     osalSysUnlockFromISR();
-    writePinLow(B0);
-    return;
   }
-
-  //We have shit to receive
+*/
+  /* Data available.*/
   if (ls & UART_LineStatus_RDR) {
     osalSysLockFromISR();
     //empty the FIFO ASAP
     uint8_t b = u->RB;
-    //block any bad transfers
+    // Block any bad transfers
+    // Intentional passthrough on BI, we need to clear the corresponding FIFO
     if (ls & UART_LS_STATUS) {
       set_error(sdp, ls);
 
     } else {
       if(iqIsEmptyI(&sdp->iqueue)) chnAddFlagsI(sdp, CHN_INPUT_AVAILABLE);
-      debug_shit(int_id,ls);
-     // if(u->LS & UART_LineStatus_RDR) {
       if (iqPutI(&sdp->iqueue, b) < MSG_OK)
         chnAddFlagsI(sdp, SD_QUEUE_FULL_ERROR);
-      //}
     }
-    debug_shit(int_id,ls);
     osalSysUnlockFromISR();
-    //ls = (uint8_t)u->LS;
   }
-} else {
+  /*  Probably not required, usually it triggers an RDR
+  if(int_id == UART_InterruptID_CTI) {
+    ii_buf= u->II;
+    int_id = ((ii_buf >> 1) & UART_InterruptID_Status);
+    debug_interrupt(int_id,ls);
+  }
+*/
   //debug
-  debug_shit(int_id,ls);
+  debug_interrupt(int_id,ls);
 
   /* Transmission buffer empty.*/
-  if ((u->IE & UART_TransmitterHoldingEmpty) && (ls & UART_LineStatus_THRE)) {//&& !(ls & UART_LineStatus_BI)) {
+  if ((u->IE & UART_TransmitterHoldingEmpty) && (ls & UART_LineStatus_THRE)) {
       msg_t b;
       osalSysLockFromISR();
-      debug_shit(int_id,ls);
-
       b = oqGetI(&sdp->oqueue);
       if (b < MSG_OK) {
         chnAddFlagsI(sdp, CHN_OUTPUT_EMPTY);
         u->IE &= ~(UART_TransmitterHoldingEmpty);
       }
-      else {
-        u->TH = b;
-      debug_shit(int_id,ls); }
-      debug_shit(int_id,ls);
-
+      else u->TH = b;
       osalSysUnlockFromISR();
   }
 
   /* Physical transmission end.*/
   if ((u->IE & UART_TransmitterEmpty) && (ls & UART_LineStatus_TEMT)) {
     osalSysLockFromISR();
-    debug_shit(int_id,ls);
-
     if (oqIsEmptyI(&sdp->oqueue)) {
-      debug_shit(int_id,ls);
-
       chnAddFlagsI(sdp, CHN_TRANSMISSION_END);
       u->IE &= ~(UART_TransmitterEmpty);
     }
     osalSysUnlockFromISR();
   }
-}
-
+  /* TX Error handling - should never be triggered */
+  if (ls & UART_LineStatus_TxError) {
+    osalSysLockFromISR();
+    u->FIFOCTRL |= UART_TxFIFO_Reset;
+    osalSysUnlockFromISR();
+  }
+  /* Clear Pending Interrupts */
   ii_buf= u->II;
+  //(void)ii_buf;
+  // Get Interrupt ID for debug
   int_id = ((ii_buf >> 1) & UART_InterruptID_Status);
   //debug
-  debug_shit(int_id,ls);
-  //}
+  debug_interrupt(int_id,ls);
+  // debug handler end
   writePinLow(B0);
 }
 
+/* Preload data in FIFO on TX init */
 static void load(SerialDriver *sdp) {
   sn32_uart_t *u = sdp->uart;
   if (u->LS & UART_LineStatus_THRE) {
@@ -490,6 +473,7 @@ void sd_lld_init(void) {
  * @notapi
  */
 void sd_lld_start(SerialDriver *sdp, const SerialConfig *config) {
+  // debug init
   setPinOutput(B0);
   setPinOutput(B1);
   setPinOutput(B2);
@@ -530,7 +514,6 @@ void sd_lld_start(SerialDriver *sdp, const SerialConfig *config) {
       /* UART0 clock enable.*/
       sys1EnableUART0();
       uart_init(sdp, config);
-      //nvicClearPending(SN32_UART0_NUMBER);
       nvicEnableVector(SN32_UART0_NUMBER, SN32_SERIAL_UART0_PRIORITY);
     }
 #endif
@@ -539,7 +522,6 @@ void sd_lld_start(SerialDriver *sdp, const SerialConfig *config) {
       /* UART1 clock enable.*/
       sys1EnableUART1();
       uart_init(sdp, config);
-      nvicClearPending(SN32_UART1_NUMBER);
       nvicEnableVector(SN32_UART1_NUMBER, SN32_SERIAL_UART1_PRIORITY);
     }
 #endif
@@ -548,14 +530,10 @@ void sd_lld_start(SerialDriver *sdp, const SerialConfig *config) {
       /* UART2 clock enable.*/
       sys1EnableUART2();
       uart_init(sdp, config);
-      nvicClearPending(SN32_UART2_NUMBER);
       nvicEnableVector(SN32_UART2_NUMBER, SN32_SERIAL_UART2_PRIORITY);
     }
 #endif
-   // sdp->LC &= ~(UART_Break_Control_Enable);
   }
-  //chThdSleepMicroseconds(50);
-  //sdp->uart->CTRL |=(UART_TxEnable | UART_RxEnable);
 }
 
 /**
