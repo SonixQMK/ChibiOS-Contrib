@@ -1,8 +1,8 @@
 /*
     ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
-    ChibiOS - Copyright (C) 2023..2025 HorrorTroll
-    ChibiOS - Copyright (C) 2023..2025 Zhaqian
-    ChibiOS - Copyright (C) 2024..2025 Maxjta
+    ChibiOS - Copyright (C) 2023..2024 HorrorTroll
+    ChibiOS - Copyright (C) 2023..2024 Zhaqian
+    ChibiOS - Copyright (C) 2023..2024 Maxjta
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -32,11 +32,17 @@ static THD_FUNCTION(Thread1, arg) {
   (void)arg;
   chRegSetThreadName("blinker");
   while (true) {
-    palToggleLine(LINE_LED_RED);
+    palSetLine(LINE_LED_RED);
     chThdSleepMilliseconds(250);
-    palToggleLine(LINE_LED_YELLOW);
+    palSetLine(LINE_LED_YELLOW);
     chThdSleepMilliseconds(250);
-    palToggleLine(LINE_LED_GREEN);
+    palSetLine(LINE_LED_GREEN);
+    chThdSleepMilliseconds(250);
+    palClearLine(LINE_LED_RED);
+    chThdSleepMilliseconds(250);
+    palClearLine(LINE_LED_YELLOW);
+    chThdSleepMilliseconds(250);
+    palClearLine(LINE_LED_GREEN);
     chThdSleepMilliseconds(250);
   }
 }

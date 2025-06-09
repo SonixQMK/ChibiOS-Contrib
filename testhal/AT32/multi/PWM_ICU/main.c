@@ -1,7 +1,7 @@
 /*
     ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
-    ChibiOS - Copyright (C) 2023..2025 HorrorTroll
-    ChibiOS - Copyright (C) 2023..2025 Zhaqian
+    ChibiOS - Copyright (C) 2023..2024 HorrorTroll
+    ChibiOS - Copyright (C) 2023..2024 Zhaqian
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -77,29 +77,34 @@ int main(void) {
   chSysInit();
 
   /*
+   * Board-dependent setup code.
+   */
+  portab_setup();
+
+  /*
    * Starting PWM driver 1 and enabling the notifications.
    * GPIOA8 is programmed as PWM output (channel 1 of TMR1).
    */
   pwmStart(&PORTAB_PWM1, &pwmcfg);
   pwmEnablePeriodicNotification(&PORTAB_PWM1);
+  palSetLineMode(LINE_ARD_D7, PAL_MODE_AT32_ALTERNATE_PUSHPULL);
 
   /*
    * Starting ICU driver 3.
    * GPIOA6 is programmed as ICU input (channel 1 of TMR3).
    */
   icuStart(&PORTAB_ICU1, &icucfg);
+  palSetLine(LINE_ARD_D12);
 
   /*
-   * Board-dependent setup code.
+   * GPIOC2/C3/C5 is programmed as output (board LED).
    */
-  portab_setup();
-
-  /*
-   * Board LED is programmed as output.
-   */
-  palToggleLine(PORTAB_BLINK_LED1);
-  palToggleLine(PORTAB_BLINK_LED2);
-  palToggleLine(PORTAB_BLINK_LED3);
+  palClearLine(PORTAB_BLINK_LED1);
+  palClearLine(PORTAB_BLINK_LED2);
+  palClearLine(PORTAB_BLINK_LED3);
+  palSetLine(PORTAB_BLINK_LED1);
+  palSetLine(PORTAB_BLINK_LED2);
+  palSetLine(PORTAB_BLINK_LED3);
   chThdSleepMilliseconds(1000);
 
   /*

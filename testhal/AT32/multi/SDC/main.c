@@ -1,7 +1,7 @@
 /*
     ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
-    ChibiOS - Copyright (C) 2023..2025 HorrorTroll
-    ChibiOS - Copyright (C) 2023..2025 Zhaqian
+    ChibiOS - Copyright (C) 2023..2024 HorrorTroll
+    ChibiOS - Copyright (C) 2023..2024 Zhaqian
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -16,25 +16,15 @@
     limitations under the License.
 */
 
-#include <stdio.h>
 #include <string.h>
 
 #include "ch.h"
 #include "hal.h"
 
-#include "rt_test_root.h"
-#include "oslib_test_root.h"
-
 #include "shell.h"
 #include "chprintf.h"
 
 #include "portab.h"
-
-#if defined(AT32_SDC_SDIO_UNALIGNED_SUPPORT)
-#define PORTAB_UNALIGNED_SUPPORT        AT32_SDC_SDIO_UNALIGNED_SUPPORT
-#else
-#error "unexpected definitions"
-#endif
 
 /*===========================================================================*/
 /* Command line related.                                                     */
@@ -49,7 +39,7 @@
 static uint8_t buf[MMCSD_BLOCK_SIZE * SDC_BURST_SIZE + 4];
 
 /* Additional buffer for sdcErase() test */
-//static uint8_t buf2[MMCSD_BLOCK_SIZE * SDC_BURST_SIZE];
+static uint8_t buf2[MMCSD_BLOCK_SIZE * SDC_BURST_SIZE ];
 
 void cmd_sdc(BaseSequentialStream *chp, int argc, char *argv[]) {
   static const char *mode[] = {"SDV11", "SDV20", "MMC", NULL};
@@ -116,7 +106,7 @@ void cmd_sdc(BaseSequentialStream *chp, int argc, char *argv[]) {
     } while (chVTIsSystemTimeWithin(start, end));
     chprintf(chp, "%D blocks/S, %D bytes/S\r\n", n, n * MMCSD_BLOCK_SIZE);
 
-#if PORTAB_UNALIGNED_SUPPORT
+#if AT32_SDC_SDIO_UNALIGNED_SUPPORT
     /* Single block read performance, unaligned.*/
     chprintf(chp, "Single block unaligned read performance:         ");
     start = chVTGetSystemTime();
@@ -144,7 +134,7 @@ void cmd_sdc(BaseSequentialStream *chp, int argc, char *argv[]) {
       n += SDC_BURST_SIZE;
     } while (chVTIsSystemTimeWithin(start, end));
     chprintf(chp, "%D blocks/S, %D bytes/S\r\n", n, n * MMCSD_BLOCK_SIZE);
-#endif /* PORTAB_UNALIGNED_SUPPORT */
+#endif /* AT32_SDC_SDIO_UNALIGNED_SUPPORT */
   }
 
   if ((strcmp(argv[0], "write") == 0) ||
@@ -167,7 +157,7 @@ void cmd_sdc(BaseSequentialStream *chp, int argc, char *argv[]) {
     }
     chprintf(chp, "OK\r\n");
 
-    for (i = 0; i < MMCSD_BLOCK_SIZE * 2; i++)
+    for (i = 0; i < MMCSD_BLOCK_SIZE; i++)
       buf[i] = i + 8;
     chprintf(chp, "Writing...");
     if(sdcWrite(&PORTAB_SDC1, startblk, buf, 2)) {
@@ -187,90 +177,77 @@ void cmd_sdc(BaseSequentialStream *chp, int argc, char *argv[]) {
 
   if ((strcmp(argv[0], "erase") == 0) ||
       (strcmp(argv[0], "all") == 0)) {
-
-//    /**
-//     * Test sdcErase()
-//     * Strategy:
-//     *   1. Fill two blocks with non-constant data
-//     *   2. Write two blocks starting at startblk
-//     *   3. Erase the second of the two blocks
-//     *      3.1. First block should be equal to the data written
-//     *      3.2. Second block should NOT be equal too the data written (i.e. erased).
-//     *   4. Erase both first and second block
-//     *      4.1 Both blocks should not be equal to the data initially written
-//     * Precondition: SDC_BURST_SIZE >= 2
-//     */
-//    memset(buf, 0, MMCSD_BLOCK_SIZE * 2);
-//    memset(buf2, 0, MMCSD_BLOCK_SIZE * 2);
-//
-//    /* 1. */
-//    unsigned int i = 0;
-//    for (; i < MMCSD_BLOCK_SIZE * 2; ++i) {
-//      buf[i] = (i + 7) % 'T'; //Ensure block 1/2 are not equal
-//    }
-//
-//    /* 2. */
-//    if(sdcWrite(&PORTAB_SDC1, startblk, buf, 2)) {
-//      chprintf(chp, "sdcErase() test write failed\r\n");
-//      goto exittest;
-//    }
-//
-//    /* 3. (erase) */
-//    if(sdcErase(&PORTAB_SDC1, startblk + 1, startblk + 2)) {
-//      chprintf(chp, "sdcErase() failed\r\n");
-//      goto exittest;
-//    }
-//
-//    sdcflags_t errflags = sdcGetAndClearErrors(&PORTAB_SDC1);
-//    if(errflags) {
-//      chprintf(chp, "sdcErase() yielded error flags: %d\r\n", errflags);
-//      goto exittest;
-//    }
-//
-//    if(sdcRead(&PORTAB_SDC1, startblk, buf2, 2)) {
-//      chprintf(chp, "single-block sdcErase() failed\r\n");
-//      goto exittest;
-//    }
-//
-//    /* 3.1. */
-//    if(memcmp(buf, buf2, MMCSD_BLOCK_SIZE) != 0) {
-//      chprintf(chp, "sdcErase() non-erased block compare failed\r\n");
-//      goto exittest;
-//    }
-//
-//    /* 3.2. */
-//    if(memcmp(buf + MMCSD_BLOCK_SIZE,
-//              buf2 + MMCSD_BLOCK_SIZE, MMCSD_BLOCK_SIZE) == 0) {
-//      chprintf(chp, "sdcErase() erased block compare failed\r\n");
-//      goto exittest;
-//    }
-//
-//    /* 4. */
-//    if(sdcErase(&PORTAB_SDC1, startblk, startblk + 2)) {
-//      chprintf(chp, "multi-block sdcErase() failed\r\n");
-//      goto exittest;
-//    }
-//
-//    if(sdcRead(&PORTAB_SDC1, startblk, buf2, 2)) {
-//      chprintf(chp, "single-block sdcErase() failed\r\n");
-//      goto exittest;
-//    }
-//
-//    /* 4.1 */
-//    if(memcmp(buf, buf2, MMCSD_BLOCK_SIZE) == 0) {
-//      chprintf(chp, "multi-block sdcErase() erased block compare failed\r\n");
-//      goto exittest;
-//    }
-//
-//    if(memcmp(buf + MMCSD_BLOCK_SIZE,
-//              buf2 + MMCSD_BLOCK_SIZE, MMCSD_BLOCK_SIZE) == 0) {
-//      chprintf(chp, "multi-block sdcErase() erased block compare failed\r\n");
-//      goto exittest;
-//    }
-//    /* END of sdcErase() test */
-    chprintf(chp, "Erase command is under construction!!!\r\n");
+    /**
+     * Test sdcErase()
+     * Strategy:
+     *   1. Fill two blocks with non-constant data
+     *   2. Write two blocks starting at startblk
+     *   3. Erase the second of the two blocks
+     *      3.1. First block should be equal to the data written
+     *      3.2. Second block should NOT be equal too the data written (i.e. erased).
+     *   4. Erase both first and second block
+     *      4.1 Both blocks should not be equal to the data initially written
+     * Precondition: SDC_BURST_SIZE >= 2
+     */
+    memset(buf, 0, MMCSD_BLOCK_SIZE * 2);
+    memset(buf2, 0, MMCSD_BLOCK_SIZE * 2);
+    /* 1. */
+    unsigned int i = 0;
+    for (; i < MMCSD_BLOCK_SIZE * 2; ++i) {
+      buf[i] = (i + 7) % 'T'; //Ensure block 1/2 are not equal
+    }
+    /* 2. */
+    if(sdcWrite(&PORTAB_SDC1, startblk, buf, 2)) {
+      chprintf(chp, "sdcErase() test write failed\r\n");
+      goto exittest;
+    }
+    /* 3. (erase) */
+    if(sdcErase(&PORTAB_SDC1, startblk + 1, startblk + 2)) {
+      chprintf(chp, "sdcErase() failed\r\n");
+      goto exittest;
+    }
+    sdcflags_t errflags = sdcGetAndClearErrors(&PORTAB_SDC1);
+    if(errflags) {
+      chprintf(chp, "sdcErase() yielded error flags: %d\r\n", errflags);
+      goto exittest;
+    }
+    if(sdcRead(&PORTAB_SDC1, startblk, buf2, 2)) {
+      chprintf(chp, "single-block sdcErase() failed\r\n");
+      goto exittest;
+    }
+    /* 3.1. */
+    if(memcmp(buf, buf2, MMCSD_BLOCK_SIZE) != 0) {
+      chprintf(chp, "sdcErase() non-erased block compare failed\r\n");
+      goto exittest;
+    }
+    /* 3.2. */
+    if(memcmp(buf + MMCSD_BLOCK_SIZE,
+              buf2 + MMCSD_BLOCK_SIZE, MMCSD_BLOCK_SIZE) == 0) {
+      chprintf(chp, "sdcErase() erased block compare failed\r\n");
+      goto exittest;
+    }
+    /* 4. */
+    if(sdcErase(&PORTAB_SDC1, startblk, startblk + 2)) {
+      chprintf(chp, "multi-block sdcErase() failed\r\n");
+      goto exittest;
+    }
+    if(sdcRead(&PORTAB_SDC1, startblk, buf2, 2)) {
+      chprintf(chp, "single-block sdcErase() failed\r\n");
+      goto exittest;
+    }
+    /* 4.1 */
+    if(memcmp(buf, buf2, MMCSD_BLOCK_SIZE) == 0) {
+      chprintf(chp, "multi-block sdcErase() erased block compare failed\r\n");
+      goto exittest;
+    }
+    if(memcmp(buf + MMCSD_BLOCK_SIZE,
+              buf2 + MMCSD_BLOCK_SIZE, MMCSD_BLOCK_SIZE) == 0) {
+      chprintf(chp, "multi-block sdcErase() erased block compare failed\r\n");
+      goto exittest;
+    }
+    /* END of sdcErase() test */
   }
-
+  
   /* Card disconnect and command end.*/
 exittest:
   sdcDisconnect(&PORTAB_SDC1);
@@ -299,11 +276,17 @@ static THD_FUNCTION(Thread1, arg) {
   (void)arg;
   chRegSetThreadName("blinker");
   while (true) {
-    palToggleLine(PORTAB_BLINK_LED1);
+    palSetLine(PORTAB_BLINK_LED1);
     chThdSleepMilliseconds(500);
-    palToggleLine(PORTAB_BLINK_LED2);
+    palSetLine(PORTAB_BLINK_LED2);
     chThdSleepMilliseconds(500);
-    palToggleLine(PORTAB_BLINK_LED3);
+    palSetLine(PORTAB_BLINK_LED3);
+    chThdSleepMilliseconds(500);
+    palClearLine(PORTAB_BLINK_LED1);
+    chThdSleepMilliseconds(500);
+    palClearLine(PORTAB_BLINK_LED2);
+    chThdSleepMilliseconds(500);
+    palClearLine(PORTAB_BLINK_LED3);
     chThdSleepMilliseconds(500);
   }
 }
@@ -329,19 +312,19 @@ int main(void) {
   portab_setup();
 
   /*
-   * Starting a serial port for test report output.
-   */
-  sdStart(&PORTAB_SD1, NULL);
-
-  /*
    * Shell manager initialization.
    */
   shellInit();
 
   /*
-   * Initializes the SDC driver using default configuration.
+   * Activates the serial driver 6 using the driver default configuration.
    */
-  sdcStart(&PORTAB_SDC1, NULL);
+  sdStart(&PORTAB_SD1, NULL);
+
+  /*
+   * Initializes the SDIO drivers.
+   */
+  sdcStart(&PORTAB_SDC1, &sdccfg);
 
   /*
    * Creates the blinker thread.

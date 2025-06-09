@@ -1,8 +1,7 @@
 /*
     ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
-    ChibiOS - Copyright (C) 2023..2025 HorrorTroll
-    ChibiOS - Copyright (C) 2023..2025 Zhaqian
-    ChibiOS - Copyright (C) 2024..2025 Maxjta
+    ChibiOS - Copyright (C) 2023..2024 HorrorTroll
+    ChibiOS - Copyright (C) 2023..2024 Zhaqian
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -778,8 +777,6 @@ typedef struct {
 #define DIEPINT_INTKNTXFEMP     (1U << 4)   /**< IN Token received when
                                                  TxFIFO is empty.           */
 #define DIEPINT_TIMEOUT         (1U << 3)   /**< Timeout condition.         */
-#define DIEPINT_AHBERR          (1U << 2)   /**< AHB error interrupt
-                                                 (HS only).                 */
 #define DIEPINT_EPTDISD         (1U << 1)   /**< Endpoint disabled
                                                  interrupt.                 */
 #define DIEPINT_XFERC           (1U << 0)   /**< Transfer completed
@@ -837,15 +834,11 @@ typedef struct {
  * @name DOEPINT register bit definitions
  * @{
  */
-#define DOEPINT_STPPKRX         (1U << 15)  /**< Setup packet received
-                                                 (HS only).                 */
 #define DOEPINT_B2BSTUP         (1U << 6)   /**< Back-to-back SETUP packets
                                                  received.                  */
 #define DOEPINT_OUTTEPD         (1U << 4)   /**< OUT token received when
                                                  endpoint disabled.         */
 #define DOEPINT_SETUP           (1U << 3)   /**< SETUP phase done.          */
-#define DOEPINT_AHBERR          (1U << 2)   /**< AHB error interrupt
-                                                 (HS only).                 */
 #define DOEPINT_EPTDISD         (1U << 1)   /**< Endpoint disabled
                                                  interrupt.                 */
 #define DOEPINT_XFERC           (1U << 0)   /**< Transfer completed

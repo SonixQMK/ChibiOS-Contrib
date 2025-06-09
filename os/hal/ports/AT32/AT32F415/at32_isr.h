@@ -1,7 +1,7 @@
 /*
     ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
-    ChibiOS - Copyright (C) 2023..2025 HorrorTroll
-    ChibiOS - Copyright (C) 2023..2025 Zhaqian
+    ChibiOS - Copyright (C) 2023..2024 HorrorTroll
+    ChibiOS - Copyright (C) 2023..2024 Zhaqian
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -52,16 +52,9 @@
 /** @} */
 
 /**
- * @name    ISR names and numbers
+ * @name    ISR names and numbers remapping
  * @{
  */
-/*
- * ADC unit.
- */
-#define AT32_ADC1_HANDLER            Vector88
-
-#define AT32_ADC1_NUMBER             18
-
 /*
  * CAN unit.
  */

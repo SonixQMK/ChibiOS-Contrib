@@ -1,8 +1,7 @@
 /*
     ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
-    ChibiOS - Copyright (C) 2023..2025 HorrorTroll
-    ChibiOS - Copyright (C) 2023..2025 Zhaqian
-    ChibiOS - Copyright (C) 2024..2025 Maxjta
+    ChibiOS - Copyright (C) 2023..2024 HorrorTroll
+    ChibiOS - Copyright (C) 2023..2024 Zhaqian
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -113,11 +112,11 @@ typedef uint32_t exintmode_t;
  * @special
  */
 #define exintGetAndClearGroup1(mask, out) do {                              \
-  uint32_t intsts1;                                                         \
+  uint32_t intsts1;                                                          \
                                                                             \
-  intsts1 = EXINT->INTSTS & (mask);                                         \
-  (out) = intsts1;                                                          \
-  EXINT->INTSTS = intsts1;                                                  \
+  intsts1 = EXINT->INTSTS & (mask);                                          \
+  (out) = intsts1;                                                           \
+  EXINT->INTSTS = intsts1;                                                   \
 } while (false)
 
 /*===========================================================================*/

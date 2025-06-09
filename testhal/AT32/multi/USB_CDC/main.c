@@ -1,7 +1,7 @@
 /*
     ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
-    ChibiOS - Copyright (C) 2023..2025 HorrorTroll
-    ChibiOS - Copyright (C) 2023..2025 Zhaqian
+    ChibiOS - Copyright (C) 2023..2024 HorrorTroll
+    ChibiOS - Copyright (C) 2023..2024 Zhaqian
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -100,11 +100,17 @@ static THD_FUNCTION(Thread1, arg) {
     systime_t time;
 
     time = serusbcfg.usbp->state == USB_ACTIVE ? 250 : 500;
-    palToggleLine(PORTAB_BLINK_LED1);
+    palSetLine(PORTAB_BLINK_LED1);
     chThdSleepMilliseconds(time);
-    palToggleLine(PORTAB_BLINK_LED2);
+    palSetLine(PORTAB_BLINK_LED2);
     chThdSleepMilliseconds(time);
-    palToggleLine(PORTAB_BLINK_LED3);
+    palSetLine(PORTAB_BLINK_LED3);
+    chThdSleepMilliseconds(time);
+    palClearLine(PORTAB_BLINK_LED1);
+    chThdSleepMilliseconds(time);
+    palClearLine(PORTAB_BLINK_LED2);
+    chThdSleepMilliseconds(time);
+    palClearLine(PORTAB_BLINK_LED3);
     chThdSleepMilliseconds(time);
   }
 }

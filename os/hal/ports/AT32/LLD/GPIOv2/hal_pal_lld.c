@@ -1,8 +1,6 @@
 /*
     ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
-    ChibiOS - Copyright (C) 2023..2025 HorrorTroll
-    ChibiOS - Copyright (C) 2023..2025 Zhaqian
-    ChibiOS - Copyright (C) 2024..2025 Maxjta
+    ChibiOS - Copyright (C) 2024 Maxjta
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -74,6 +72,7 @@ void _pal_lld_init(void) {
     _pal_init_event(i);
   }
 #endif
+  crmEnableAHB1(AT32_GPIO_EN_MASK, false);
 }
 
 /**
@@ -93,43 +92,43 @@ void _pal_lld_setgroupmode(ioportid_t port,
                            ioportmask_t mask,
                            iomode_t mode) {
 
-  uint32_t cfgr  = (mode & PAL_AT32_MODE_MASK) >> 0;
-  uint32_t omode = (mode & PAL_AT32_OMODE_MASK) >> 2;
-  uint32_t odrvr = (mode & PAL_AT32_ODRVR_MASK) >> 3;
-  uint32_t pull  = (mode & PAL_AT32_PULL_MASK) >> 5;
-  uint32_t mux   = (mode & PAL_AT32_MUX_MASK) >> 7;
-  uint32_t hdrv  = (mode & PAL_AT32_HDRV_MASK) >> 11;
-  uint32_t bit   = 0;
+  uint32_t cfgr   = (mode & PAL_AT32_MODE_MASK) >> 0;
+  uint32_t omode  = (mode & PAL_AT32_OMODE_MASK) >> 2;
+  uint32_t odrvr  = (mode & PAL_AT32_ODRV_MASK) >> 3;
+  uint32_t pull   = (mode & PAL_AT32_PULL_MASK) >> 5;
+  uint32_t muxr   = (mode & PAL_AT32_ALTERNATE_MASK) >> 7;
+  uint32_t hdrv   = (mode & PAL_AT32_HDRV_MASK) >> 11;
+  uint32_t bit    = 0;
 
   while (true) {
     if ((mask & 1) != 0) {
-      uint32_t muxmask, m1, m2, m4;
+      uint32_t muxrmask, m1, m2, m4;
 
-      muxmask = mux << ((bit & 7) * 4);
+      muxrmask = muxr << ((bit & 7) * 4);
       m1 = 1 << bit;
       m2 = 3 << (bit * 2);
       m4 = 15 << ((bit & 7) * 4);
-      port->OMODE = (port->OMODE & ~m1) | omode;
-      port->ODRVR = (port->ODRVR & ~m2) | odrvr;
-      port->PULL  = (port->PULL & ~m2) | pull;
-      port->HDRV  = (port->HDRV & ~m1) | hdrv;
-      if ((mode & PAL_AT32_MODE_MASK) == PAL_AT32_MODE_MUX) {
-        /* If going in multiplexing mode then the multiplexing number is set
+      port->OMODE  = (port->OMODE & ~m1) | omode;
+      port->ODRVR  = (port->ODRVR & ~m2) | odrvr;
+      port->PULL   = (port->PULL & ~m2) | pull;
+      port->HDRV   = (port->HDRV & ~m1) | hdrv;
+      if ((mode & PAL_AT32_MODE_MASK) == PAL_AT32_MODE_ALTERNATE) {
+        /* If going in alternate mode then the alternate number is set
            before switching mode in order to avoid glitches.*/
         if (bit < 8)
-          port->MUXL = (port->MUXL & ~m4) | muxmask;
+          port->MUXL = (port->MUXL & ~m4) | muxrmask;
         else
-          port->MUXH = (port->MUXH & ~m4) | muxmask;
+          port->MUXH = (port->MUXH & ~m4) | muxrmask;
         port->CFGR   = (port->CFGR & ~m2) | cfgr;
       }
       else {
-        /* If going into a non-multiplexing mode then the mode is switched
-           before setting the multiplexing mode in order to avoid glitches.*/
+        /* If going into a non-alternate mode then the mode is switched
+           before setting the alternate mode in order to avoid glitches.*/
         port->CFGR   = (port->CFGR & ~m2) | cfgr;
         if (bit < 8)
-          port->MUXL = (port->MUXL & ~m4) | muxmask;
+          port->MUXL = (port->MUXL & ~m4) | muxrmask;
         else
-          port->MUXH = (port->MUXH & ~m4) | muxmask;
+          port->MUXH = (port->MUXH & ~m4) | muxrmask;
       }
     }
     mask >>= 1;
@@ -158,7 +157,10 @@ void _pal_lld_enablepadevent(ioportid_t port,
                              iopadid_t pad,
                              ioeventmode_t mode) {
 
-  uint32_t padmask, cridx, croff, crmask, portidx;
+  uint32_t padmask, cidx, coff, cmask, portidx;
+
+  /* Enable SCFG clock. */
+  crmEnableSCFG(false);
 
   /* Mask of the pad.*/
   padmask = 1U << (uint32_t)pad;
@@ -174,10 +176,10 @@ void _pal_lld_enablepadevent(ioportid_t port,
   portidx = (((uint32_t)port - (uint32_t)GPIOA) >> 10U) & 0xFU;
 
   /* Index and mask of the EXINTC register to be used.*/
-  cridx  = (uint32_t)pad >> 2U;
-  croff  = ((uint32_t)pad & 3U) * 4U;
-  crmask = ~(0xFU << croff);
-  SCFG->EXINTC[cridx] = (SCFG->EXINTC[cridx] & crmask) | (portidx << croff);
+  cidx  = (uint32_t)pad >> 2U;
+  coff  = ((uint32_t)pad & 3U) * 4U;
+  cmask = ~(0xFU << coff);
+  SCFG->EXINTC[cidx] = (SCFG->EXINTC[cidx] & cmask) | (portidx << coff);
 
   /* Programming edge registers.*/
   if (mode & PAL_EVENT_MODE_RISING_EDGE)
@@ -212,20 +214,20 @@ void _pal_lld_disablepadevent(ioportid_t port, iopadid_t pad) {
   /* Mask of the pad.*/
   padmask = 1U << (uint32_t)pad;
 
-  /* If either POLCFG1 or POLCFG2 is enabled then the channel is in use.*/
+  /* If either RTRS1 or POLCFG2 is enabled then the channel is in use.*/
   if (((polcfg1 | polcfg2) & padmask) != 0U) {
-    uint32_t cridx, croff, crport, portidx;
+    uint32_t cidx, coff, cport, portidx;
 
     /* Port index is obtained assuming that GPIO ports are placed at regular
        0x400 intervals in memory space. So far this is true for all devices.*/
     portidx = (((uint32_t)port - (uint32_t)GPIOA) >> 10U) & 0xFU;
 
     /* Index and mask of the EXINTC register to be used.*/
-    cridx  = (uint32_t)pad >> 2U;
-    croff  = ((uint32_t)pad & 3U) * 4U;
-    crport = (SCFG->EXINTC[cridx] >> croff) & 0xFU;
+    cidx  = (uint32_t)pad >> 2U;
+    coff  = ((uint32_t)pad & 3U) * 4U;
+    cport = (SCFG->EXINTC[cidx] >> coff) & 0xFU;
 
-    osalDbgAssert(crport == portidx, "channel mapped on different port");
+    osalDbgAssert(cport == portidx, "channel mapped on different port");
 
     /* Disabling channel.*/
     EXINT->INTEN   &= ~padmask;

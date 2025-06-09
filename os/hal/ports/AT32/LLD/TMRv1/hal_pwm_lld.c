@@ -1,7 +1,7 @@
 /*
     ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
-    ChibiOS - Copyright (C) 2023..2025 HorrorTroll
-    ChibiOS - Copyright (C) 2023..2025 Zhaqian
+    ChibiOS - Copyright (C) 2023..2024 HorrorTroll
+    ChibiOS - Copyright (C) 2023..2024 Zhaqian
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -98,22 +98,6 @@ PWMDriver PWMD10;
  */
 #if AT32_PWM_USE_TMR11 || defined(__DOXYGEN__)
 PWMDriver PWMD11;
-#endif
-
-/**
- * @brief   PWMD13 driver identifier.
- * @note    The driver PWMD13 allocates the timer TMR13 when enabled.
- */
-#if AT32_PWM_USE_TMR13 || defined(__DOXYGEN__)
-PWMDriver PWMD13;
-#endif
-
-/**
- * @brief   PWMD14 driver identifier.
- * @note    The driver PWMD14 allocates the timer TMR14 when enabled.
- */
-#if AT32_PWM_USE_TMR14 || defined(__DOXYGEN__)
-PWMDriver PWMD14;
 #endif
 
 /*===========================================================================*/
@@ -274,18 +258,6 @@ OSAL_IRQ_HANDLER(AT32_TMR5_HANDLER) {
 #endif /* !defined(AT32_TMR11_SUPPRESS_ISR) */
 #endif /* AT32_PWM_USE_TMR11 */
 
-#if AT32_PWM_USE_TMR13 || defined(__DOXYGEN__)
-#if !defined(AT32_TMR13_SUPPRESS_ISR)
-#error "TMR13 ISR not defined by platform"
-#endif /* !defined(AT32_TMR13_SUPPRESS_ISR) */
-#endif /* AT32_PWM_USE_TMR13 */
-
-#if AT32_PWM_USE_TMR14 || defined(__DOXYGEN__)
-#if !defined(AT32_TMR14_SUPPRESS_ISR)
-#error "TMR14 ISR not defined by platform"
-#endif /* !defined(AT32_TMR14_SUPPRESS_ISR) */
-#endif /* AT32_PWM_USE_TMR14 */
-
 /*===========================================================================*/
 /* Driver exported functions.                                                */
 /*===========================================================================*/
@@ -347,7 +319,7 @@ void pwm_lld_init(void) {
   pwmObjectInit(&PWMD9);
   PWMD9.channels = AT32_TMR9_CHANNELS;
   PWMD9.tmr = AT32_TMR9;
-  PWMD9.has_brk = true;
+  PWMD9.has_brk = false;
   PWMD9.has_plus_mode = (bool)AT32_TMR9_IS_32BITS;
 #endif
 
@@ -356,7 +328,7 @@ void pwm_lld_init(void) {
   pwmObjectInit(&PWMD10);
   PWMD10.channels = AT32_TMR10_CHANNELS;
   PWMD10.tmr = AT32_TMR10;
-  PWMD10.has_brk = true;
+  PWMD10.has_brk = false;
   PWMD10.has_plus_mode = (bool)AT32_TMR10_IS_32BITS;
 #endif
 
@@ -365,26 +337,8 @@ void pwm_lld_init(void) {
   pwmObjectInit(&PWMD11);
   PWMD11.channels = AT32_TMR11_CHANNELS;
   PWMD11.tmr = AT32_TMR11;
-  PWMD11.has_brk = true;
+  PWMD11.has_brk = false;
   PWMD11.has_plus_mode = (bool)AT32_TMR11_IS_32BITS;
-#endif
-
-#if AT32_PWM_USE_TMR13
-  /* Driver initialization.*/
-  pwmObjectInit(&PWMD13);
-  PWMD13.channels = AT32_TMR13_CHANNELS;
-  PWMD13.tmr = AT32_TMR13;
-  PWMD13.has_brk = true;
-  PWMD13.has_plus_mode = (bool)AT32_TMR13_IS_32BITS;
-#endif
-
-#if AT32_PWM_USE_TMR14
-  /* Driver initialization.*/
-  pwmObjectInit(&PWMD14);
-  PWMD14.channels = AT32_TMR14_CHANNELS;
-  PWMD14.tmr = AT32_TMR14;
-  PWMD14.has_brk = true;
-  PWMD14.has_plus_mode = (bool)AT32_TMR14_IS_32BITS;
 #endif
 }
 
@@ -480,22 +434,6 @@ void pwm_lld_start(PWMDriver *pwmp) {
       crmEnableTMR11(true);
       crmResetTMR11();
       pwmp->clock = AT32_TMRCLK2;
-    }
-#endif
-
-#if AT32_PWM_USE_TMR13
-    if (&PWMD13 == pwmp) {
-      crmEnableTMR13(true);
-      crmResetTMR13();
-      pwmp->clock = AT32_TMRCLK1;
-    }
-#endif
-
-#if AT32_PWM_USE_TMR14
-    if (&PWMD14 == pwmp) {
-      crmEnableTMR14(true);
-      crmResetTMR14();
-      pwmp->clock = AT32_TMRCLK1;
     }
 #endif
 
@@ -697,18 +635,6 @@ void pwm_lld_stop(PWMDriver *pwmp) {
 #if AT32_PWM_USE_TMR11
     if (&PWMD11 == pwmp) {
       crmDisableTMR11();
-    }
-#endif
-
-#if AT32_PWM_USE_TMR13
-    if (&PWMD13 == pwmp) {
-      crmDisableTMR13();
-    }
-#endif
-
-#if AT32_PWM_USE_TMR14
-    if (&PWMD14 == pwmp) {
-      crmDisableTMR14();
     }
 #endif
   }
