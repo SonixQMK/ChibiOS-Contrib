@@ -2,8 +2,8 @@
   **************************************************************************
   * @file    at32f415kx.h
   * @author  Artery Technology & HorrorTroll & Zhaqian
-  * @version v2.1.4
-  * @date    01-February-2024
+  * @version v2.1.6
+  * @date    13-Dec-2024
   * @brief   AT32F415Kx header file.
   *
   **************************************************************************
@@ -42,11 +42,11 @@
 #endif
 
 /**
-  * @brief CMSIS Device version number V2.1.4
+  * @brief CMSIS Device version number V2.1.6
   */
 #define __AT32F415_LIBRARY_VERSION_MAJOR   (0x02) /*!< [31:24] major version */
 #define __AT32F415_LIBRARY_VERSION_MIDDLE  (0x01) /*!< [23:16] middle version */
-#define __AT32F415_LIBRARY_VERSION_MINOR   (0x04) /*!< [15:8]  minor version */
+#define __AT32F415_LIBRARY_VERSION_MINOR   (0x06) /*!< [15:8]  minor version */
 #define __AT32F415_LIBRARY_VERSION_RC      (0x00) /*!< [7:0]   release candidate */
 #define __AT32F415_LIBRARY_VERSION         ((__AT32F415_LIBRARY_VERSION_MAJOR  << 24)\
                                            |(__AT32F415_LIBRARY_VERSION_MIDDLE << 16)\
@@ -2995,7 +2995,7 @@ typedef struct
 #define IOMUX_REMAP3_TMR11_GMUX_3           (0x8U << IOMUX_REMAP3_TMR11_GMUX_Pos)   /*!< 0x00000800 */
 
 #define IOMUX_REMAP3_TMR11_GMUX_MUX0        0x00000000U                             /*!< CH1/PB9 */
-#define IOMUX_REMAP3_TMR11_GMUX_MUX2_Pos    (9U)                                    /*!< 0x00000002 */
+#define IOMUX_REMAP3_TMR11_GMUX_MUX2_Pos    (9U)                                    /*!< 0x00000200 */
 #define IOMUX_REMAP3_TMR11_GMUX_MUX2_Msk    (0x1U << IOMUX_REMAP3_TMR11_GMUX_MUX2_Pos)
 #define IOMUX_REMAP3_TMR11_GMUX_MUX2        IOMUX_REMAP3_TMR11_GMUX_MUX2_Msk        /*!< CH1/PA7 */
 
@@ -3225,9 +3225,6 @@ typedef struct
 #define IOMUX_REMAP8_TMR1_BK1_CMP_GMUX_1    (0x2U << IOMUX_REMAP8_TMR1_BK1_CMP_GMUX_Pos)  /*!< 0x00000002 */
 
 #define IOMUX_REMAP8_TMR1_BK1_CMP_GMUX_MUX0     0x00000000U                             /*!< TMR1_GMUX IO signal is connected to TMR1 BRK channel 1 */
-#define IOMUX_REMAP8_TMR1_BK1_CMP_GMUX_MUX1_Pos (0U)                                    /*!< 0x00000001 */
-#define IOMUX_REMAP8_TMR1_BK1_CMP_GMUX_MUX1_Msk (0x1U << IOMUX_REMAP8_TMR1_BK1_CMP_GMUX_MUX1_Pos)
-#define IOMUX_REMAP8_TMR1_BK1_CMP_GMUX_MUX1     IOMUX_REMAP8_TMR1_BK1_CMP_GMUX_MUX1_Msk /*!< TMR1_GMUX IO signal is connected to TMR1 BRK channel 1 */
 #define IOMUX_REMAP8_TMR1_BK1_CMP_GMUX_MUX2_Pos (1U)                                    /*!< 0x00000002 */
 #define IOMUX_REMAP8_TMR1_BK1_CMP_GMUX_MUX2_Msk (0x1U << IOMUX_REMAP8_TMR1_BK1_CMP_GMUX_MUX2_Pos)
 #define IOMUX_REMAP8_TMR1_BK1_CMP_GMUX_MUX2     IOMUX_REMAP8_TMR1_BK1_CMP_GMUX_MUX2_Msk /*!< CMP output signal is connected to TMR1 BRK channel 1 */
@@ -3243,9 +3240,6 @@ typedef struct
 #define IOMUX_REMAP8_TMR1_CH1_CMP_GMUX_1    (0x2U << IOMUX_REMAP8_TMR1_CH1_CMP_GMUX_Pos)  /*!< 0x00000008 */
 
 #define IOMUX_REMAP8_TMR1_CH1_CMP_GMUX_MUX0     0x00000000U                             /*!< TMR1_GMUX IO signal is connected to TMR1 channel 1 */
-#define IOMUX_REMAP8_TMR1_CH1_CMP_GMUX_MUX1_Pos (2U)                                    /*!< 0x00000004 */
-#define IOMUX_REMAP8_TMR1_CH1_CMP_GMUX_MUX1_Msk (0x1U << IOMUX_REMAP8_TMR1_CH1_CMP_GMUX_MUX1_Pos)
-#define IOMUX_REMAP8_TMR1_CH1_CMP_GMUX_MUX1     IOMUX_REMAP8_TMR1_CH1_CMP_GMUX_MUX1_Msk /*!< TMR1_GMUX IO signal is connected to TMR1 channel 1 */
 #define IOMUX_REMAP8_TMR1_CH1_CMP_GMUX_MUX2_Pos (3U)                                    /*!< 0x00000008 */
 #define IOMUX_REMAP8_TMR1_CH1_CMP_GMUX_MUX2_Msk (0x1U << IOMUX_REMAP8_TMR1_CH1_CMP_GMUX_MUX2_Pos)
 #define IOMUX_REMAP8_TMR1_CH1_CMP_GMUX_MUX2     IOMUX_REMAP8_TMR1_CH1_CMP_GMUX_MUX2_Msk /*!< CMP output signal is connected to TMR1 channel 1 */
@@ -3261,9 +3255,6 @@ typedef struct
 #define IOMUX_REMAP8_TMR2_CH4_CMP_GMUX_1    (0x2U << IOMUX_REMAP8_TMR2_CH4_CMP_GMUX_Pos)  /*!< 0x00000020 */
 
 #define IOMUX_REMAP8_TMR2_CH4_CMP_GMUX_MUX0     0x00000000U                             /*!< TMR2_GMUX IO signal is connected to TMR2 channel 4 */
-#define IOMUX_REMAP8_TMR2_CH4_CMP_GMUX_MUX1_Pos (4U)                                    /*!< 0x00000010 */
-#define IOMUX_REMAP8_TMR2_CH4_CMP_GMUX_MUX1_Msk (0x1U << IOMUX_REMAP8_TMR2_CH4_CMP_GMUX_MUX1_Pos)
-#define IOMUX_REMAP8_TMR2_CH4_CMP_GMUX_MUX1     IOMUX_REMAP8_TMR2_CH4_CMP_GMUX_MUX1_Msk /*!< TMR2_GMUX IO signal is connected to TMR2 channel 4 */
 #define IOMUX_REMAP8_TMR2_CH4_CMP_GMUX_MUX2_Pos (5U)                                    /*!< 0x00000020 */
 #define IOMUX_REMAP8_TMR2_CH4_CMP_GMUX_MUX2_Msk (0x1U << IOMUX_REMAP8_TMR2_CH4_CMP_GMUX_MUX2_Pos)
 #define IOMUX_REMAP8_TMR2_CH4_CMP_GMUX_MUX2     IOMUX_REMAP8_TMR2_CH4_CMP_GMUX_MUX2_Msk /*!< CMP output signal is connected to TMR2 channel 4 */
@@ -3279,9 +3270,6 @@ typedef struct
 #define IOMUX_REMAP8_TMR3_CH1_CMP_GMUX_1    (0x2U << IOMUX_REMAP8_TMR3_CH1_CMP_GMUX_Pos)  /*!< 0x00000080 */
 
 #define IOMUX_REMAP8_TMR3_CH1_CMP_GMUX_MUX0     0x00000000U                             /*!< TMR3_GMUX IO signal is connected to TMR3 channel 1 */
-#define IOMUX_REMAP8_TMR3_CH1_CMP_GMUX_MUX1_Pos (6U)                                    /*!< 0x00000040 */
-#define IOMUX_REMAP8_TMR3_CH1_CMP_GMUX_MUX1_Msk (0x1U << IOMUX_REMAP8_TMR3_CH1_CMP_GMUX_MUX1_Pos)
-#define IOMUX_REMAP8_TMR3_CH1_CMP_GMUX_MUX1     IOMUX_REMAP8_TMR3_CH1_CMP_GMUX_MUX1_Msk /*!< TMR3_GMUX IO signal is connected to TMR3 channel 1 */
 #define IOMUX_REMAP8_TMR3_CH1_CMP_GMUX_MUX2_Pos (7U)                                    /*!< 0x00000080 */
 #define IOMUX_REMAP8_TMR3_CH1_CMP_GMUX_MUX2_Msk (0x1U << IOMUX_REMAP8_TMR3_CH1_CMP_GMUX_MUX2_Pos)
 #define IOMUX_REMAP8_TMR3_CH1_CMP_GMUX_MUX2     IOMUX_REMAP8_TMR3_CH1_CMP_GMUX_MUX2_Msk /*!< CMP output signal is connected to TMR3 channel 1 */

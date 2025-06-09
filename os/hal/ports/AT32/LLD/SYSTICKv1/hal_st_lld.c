@@ -1,7 +1,7 @@
 /*
     ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
-    ChibiOS - Copyright (C) 2023..2024 HorrorTroll
-    ChibiOS - Copyright (C) 2023..2024 Zhaqian
+    ChibiOS - Copyright (C) 2023..2025 HorrorTroll
+    ChibiOS - Copyright (C) 2023..2025 Zhaqian
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -60,7 +60,11 @@
 #define ST_NUMBER                           AT32_TMR1_CH_NUMBER
 #define ST_CLOCK_SRC                        AT32_TMRCLK2
 #define ST_ENABLE_CLOCK()                   crmEnableTMR1(true)
+#if defined(AT32F415)
 #define ST_ENABLE_PAUSE()                   DEBUG->CTRL |= DEBUG_CTRL_TMR1_PAUSE
+#else
+#define ST_ENABLE_PAUSE()                   DEBUG->APB2_PAUSE |= DEBUG_APB2_PAUSE_TMR1_PAUSE
+#endif
 
 #elif AT32_ST_USE_TIMER == 2
 
@@ -76,7 +80,11 @@
 #define ST_NUMBER                           AT32_TMR2_NUMBER
 #define ST_CLOCK_SRC                        AT32_TMRCLK1
 #define ST_ENABLE_CLOCK()                   crmEnableTMR2(true)
+#if defined(AT32F415)
 #define ST_ENABLE_PAUSE()                   DEBUG->CTRL |= DEBUG_CTRL_TMR2_PAUSE
+#else
+#define ST_ENABLE_PAUSE()                   DEBUG->APB1_PAUSE |= DEBUG_APB1_PAUSE_TMR2_PAUSE
+#endif
 
 #elif AT32_ST_USE_TIMER == 3
 
@@ -92,7 +100,11 @@
 #define ST_NUMBER                           AT32_TMR3_NUMBER
 #define ST_CLOCK_SRC                        AT32_TMRCLK1
 #define ST_ENABLE_CLOCK()                   crmEnableTMR3(true)
+#if defined(AT32F415)
 #define ST_ENABLE_PAUSE()                   DEBUG->CTRL |= DEBUG_CTRL_TMR3_PAUSE
+#else
+#define ST_ENABLE_PAUSE()                   DEBUG->APB1_PAUSE |= DEBUG_APB1_PAUSE_TMR3_PAUSE
+#endif
 
 #elif AT32_ST_USE_TIMER == 4
 
@@ -108,7 +120,11 @@
 #define ST_NUMBER                           AT32_TMR4_NUMBER
 #define ST_CLOCK_SRC                        AT32_TMRCLK1
 #define ST_ENABLE_CLOCK()                   crmEnableTMR4(true)
+#if defined(AT32F415)
 #define ST_ENABLE_PAUSE()                   DEBUG->CTRL |= DEBUG_CTRL_TMR4_PAUSE
+#else
+#define ST_ENABLE_PAUSE()                   DEBUG->APB1_PAUSE |= DEBUG_APB1_PAUSE_TMR4_PAUSE
+#endif
 
 #elif AT32_ST_USE_TIMER == 5
 
@@ -124,7 +140,9 @@
 #define ST_NUMBER                           AT32_TMR5_NUMBER
 #define ST_CLOCK_SRC                        AT32_TMRCLK1
 #define ST_ENABLE_CLOCK()                   crmEnableTMR5(true)
+#if defined(AT32F415)
 #define ST_ENABLE_PAUSE()                   DEBUG->CTRL |= DEBUG_CTRL_TMR5_PAUSE
+#endif
 
 #elif AT32_ST_USE_TIMER == 9
 
@@ -140,7 +158,11 @@
 #define ST_NUMBER                           AT32_TMR9_NUMBER
 #define ST_CLOCK_SRC                        AT32_TMRCLK2
 #define ST_ENABLE_CLOCK()                   crmEnableTMR9(true)
+#if defined(AT32F415)
 #define ST_ENABLE_PAUSE()                   DEBUG->CTRL |= DEBUG_CTRL_TMR9_PAUSE
+#else
+#define ST_ENABLE_PAUSE()                   DEBUG->APB2_PAUSE |= DEBUG_APB2_PAUSE_TMR9_PAUSE
+#endif
 
 #elif AT32_ST_USE_TIMER == 10
 
@@ -156,7 +178,11 @@
 #define ST_NUMBER                           AT32_TMR10_NUMBER
 #define ST_CLOCK_SRC                        AT32_TMRCLK2
 #define ST_ENABLE_CLOCK()                   crmEnableTMR10(true)
+#if defined(AT32F415)
 #define ST_ENABLE_PAUSE()                   DEBUG->CTRL |= DEBUG_CTRL_TMR10_PAUSE
+#else
+#define ST_ENABLE_PAUSE()                   DEBUG->APB2_PAUSE |= DEBUG_APB2_PAUSE_TMR10_PAUSE
+#endif
 
 #elif AT32_ST_USE_TIMER == 11
 
@@ -172,7 +198,43 @@
 #define ST_NUMBER                           AT32_TMR11_NUMBER
 #define ST_CLOCK_SRC                        AT32_TMRCLK2
 #define ST_ENABLE_CLOCK()                   crmEnableTMR11(true)
+#if defined(AT32F415)
 #define ST_ENABLE_PAUSE()                   DEBUG->CTRL |= DEBUG_CTRL_TMR11_PAUSE
+#else
+#define ST_ENABLE_PAUSE()                   DEBUG->APB2_PAUSE |= DEBUG_APB2_PAUSE_TMR11_PAUSE
+#endif
+
+#elif AT32_ST_USE_TIMER == 13
+
+#if !AT32_HAS_TMR13
+#error "TMR13 not present in the selected device"
+#endif
+
+#if (OSAL_ST_RESOLUTION == 32) && !AT32_TMR13_IS_32BITS
+#error "TMR13 is not a 32bits timer"
+#endif
+
+#define ST_HANDLER                          AT32_TMR13_HANDLER
+#define ST_NUMBER                           AT32_TMR13_NUMBER
+#define ST_CLOCK_SRC                        AT32_TMRCLK1
+#define ST_ENABLE_CLOCK()                   crmEnableTMR13(true)
+#define ST_ENABLE_PAUSE()                   DEBUG->APB1_PAUSE |= DEBUG_APB1_PAUSE_TMR13_PAUSE
+
+#elif AT32_ST_USE_TIMER == 14
+
+#if !AT32_HAS_TMR14
+#error "TMR14 not present in the selected device"
+#endif
+
+#if (OSAL_ST_RESOLUTION == 32) && !AT32_TMR14_IS_32BITS
+#error "TMR14 is not a 32bits timer"
+#endif
+
+#define ST_HANDLER                          AT32_TMR14_HANDLER
+#define ST_NUMBER                           AT32_TMR14_NUMBER
+#define ST_CLOCK_SRC                        AT32_TMRCLK1
+#define ST_ENABLE_CLOCK()                   crmEnableTMR14(true)
+#define ST_ENABLE_PAUSE()                   DEBUG->APB1_PAUSE |= DEBUG_APB1_PAUSE_TMR14_PAUSE
 
 #else
 #error "AT32_ST_USE_TIMER specifies an unsupported timer"

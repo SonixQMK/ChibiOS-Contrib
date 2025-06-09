@@ -1,7 +1,7 @@
 /*
     ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
-    ChibiOS - Copyright (C) 2023..2024 HorrorTroll
-    ChibiOS - Copyright (C) 2023..2024 Zhaqian
+    ChibiOS - Copyright (C) 2023..2025 HorrorTroll
+    ChibiOS - Copyright (C) 2023..2025 Zhaqian
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -798,6 +798,36 @@
  * @api
  */
 #define crmResetUART5() crmResetAPB1(CRM_APB1RST_UART5RST)
+/** @} */
+
+/**
+ * @name    CRC peripherals specific CRM operations
+ * @{
+ */
+/**
+ * @brief   Enables the CRC peripheral clock.
+ * @note    The @p lp parameter is ignored in this family.
+ *
+ * @param[in] lp        low power enable flag
+ *
+ * @api
+ */
+#define crmEnableCRC(lp) crmEnableAHB(CRM_AHBEN_CRCEN, lp)
+
+/**
+ * @brief   Disables the CRC peripheral clock.
+ *
+ * @api
+ */
+#define crmDisableCRC() crmDisableAHB(CRM_AHBEN_CRCEN)
+
+/**
+ * @brief   Resets the CRC peripheral.
+ * @note    Not supported in this family, does nothing.
+ *
+ * @api
+ */
+#define crmResetCRC()
 /** @} */
 
 /*===========================================================================*/
