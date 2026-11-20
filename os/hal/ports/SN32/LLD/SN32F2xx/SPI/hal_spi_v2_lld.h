@@ -156,7 +156,8 @@
   uint8_t                   *rxbuf;                                         \
   const uint8_t             *txbuf;                                         \
   uint32_t                  count;                                          \
-  uint32_t                  idx;
+  uint32_t                  idx;                                            \
+  uint32_t                  txidx;
 
 /**
  * @brief   Low level fields of the SPI configuration structure.
