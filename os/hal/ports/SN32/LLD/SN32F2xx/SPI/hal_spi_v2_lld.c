@@ -94,7 +94,9 @@ static inline void spi_lld_irq_handler(SPIDriver *spip) {
       /* The peer may keep clocking (reply tail) past the nominal transfer
        * length.  Without a TX FIFO refill the engine underflows and shifts
        * out stale/undefined bytes; feed zeroes so the stream stays clean. */
-      spip->spi->DATA = 0x00;
+      if (spip->config->slave) {
+        spip->spi->DATA = 0x00;
+      }
     } else {
       spip->spi->DATA = spip->txbuf ? spip->txbuf[spip->idx] : 0x00;
     }
