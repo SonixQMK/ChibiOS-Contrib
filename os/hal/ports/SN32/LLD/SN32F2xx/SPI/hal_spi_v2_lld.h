@@ -114,6 +114,13 @@
 #if !defined(SN32_SPI_SPI1_IRQ_PRIORITY) || defined(__DOXYGEN__)
 #define SN32_SPI_SPI1_IRQ_PRIORITY         3
 #endif
+
+/**
+ * @brief   SPI FIFO reset wait loop iteration limit.
+ */
+#if !defined(SPI_FIFO_RESET_TIMEOUT) || defined(__DOXYGEN__)
+#define SPI_FIFO_RESET_TIMEOUT             1000U
+#endif
 /** @} */
 
 /*===========================================================================*/

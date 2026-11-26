@@ -60,7 +60,7 @@ static inline void spi_lld_fifo_reset(SPIDriver *spip) {
   SPI_FIFO_FRESET(spip);
   /* FRESET is self-clearing: wait for the reset to release before any
    * subsequent FIFO writes. Bounded loop so this is safe in ISR context. */
-  for (uint32_t i = 0; i < 1000 && spip->spi->CTRL0_b.FRESET != 0; i++);
+  for (uint32_t i = 0; i < SPI_FIFO_RESET_TIMEOUT && spip->spi->CTRL0_b.FRESET != 0; i++);
 }
 
 static void spi_lld_configure(SPIDriver *spip) {
