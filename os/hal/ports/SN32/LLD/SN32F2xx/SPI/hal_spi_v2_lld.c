@@ -56,6 +56,13 @@ SPIDriver SPID1;
 /* Driver local functions.                                                   */
 /*===========================================================================*/
 
+static inline void spi_lld_fifo_reset(SPIDriver *spip) {
+  SPI_FIFO_FRESET(spip);
+  /* FRESET is self-clearing: wait for the reset to release before any
+   * subsequent FIFO writes. Bounded loop so this is safe in ISR context. */
+  for (uint32_t i = 0; i < SPI_FIFO_RESET_TIMEOUT && spip->spi->CTRL0_b.FRESET != 0; i++);
+}
+
 static void spi_lld_configure(SPIDriver *spip) {
   spip->spi->CTRL0 = spip->config->ctrl0;
   spip->spi->CTRL0_b.SELDIS = SPI_SELECT_MODE != SPI_SELECT_MODE_LLD;
@@ -67,11 +74,11 @@ static void spi_lld_configure(SPIDriver *spip) {
   spip->spi->CLKDIV = (uint32_t)spip->config->clkdiv;
 
   uint32_t sn32_spi_clock = (SN32_HCLK / ((2 * spip->config->clkdiv) + 2));
-  if (sn32_spi_clock > 6000000) {
-    spip->spi->DFDLY = true;
-  }
+  /* In slave mode SCK comes from the peer, so the clkdiv-derived clock is
+   * meaningless and DFDLY only makes the slave prefetch stale TX data. */
+  spip->spi->DFDLY = !spip->config->slave && (sn32_spi_clock > 6000000);
 
-  SPI_FIFO_FRESET(spip);
+  spi_lld_fifo_reset(spip);
 
   spip->spi->IC = 0b1111;
   // enable RX FIFO threshold interrupt
@@ -97,8 +104,12 @@ static inline void spi_lld_irq_handler(SPIDriver *spip) {
       if (spip->config->slave) {
         spip->spi->DATA = 0x00;
       }
+    } else if (spip->txidx < spip->count) {
+      /* One TX write per received byte keeps the FIFO level constant
+       * after the preload done in spi_lld_exchange(). */
+      spip->spi->DATA = spip->txbuf ? spip->txbuf[spip->txidx++] : 0x00;
     } else {
-      spip->spi->DATA = spip->txbuf ? spip->txbuf[spip->idx] : 0x00;
+      spip->spi->DATA = 0x00;
     }
   }
 }
@@ -204,7 +215,7 @@ void spi_lld_stop(SPIDriver *spip) {
 
     /* Disables the peripheral.*/
 
-    SPI_FIFO_FRESET(spip);
+    spi_lld_fifo_reset(spip);
 
     spip->spi->CTRL0_b.SPIEN = false;
 
@@ -293,12 +304,22 @@ msg_t spi_lld_ignore(SPIDriver *spip, size_t n) {
 msg_t spi_lld_exchange(SPIDriver *spip, size_t n,
                        const void *txbuf, void *rxbuf) {
 
+  /* Reset first so no stale tail bytes from a previous transfer are
+   * queued ahead of the new frame. */
+  spi_lld_fifo_reset(spip);
+
   spip->txbuf = txbuf;
   spip->rxbuf = rxbuf;
   spip->count = n;
   spip->idx = 0;
+  spip->txidx = 0;
 
-  spip->spi->DATA = spip->txbuf ? spip->txbuf[0] : 0x00;
+  /* Preload the TX FIFO: the peer starts clocking as soon as it selects
+   * us, so the data must already be there. */
+  while (spip->txidx < n && !spip->spi->STAT_b.TX_FULL) {
+    spip->spi->DATA = spip->txbuf ? spip->txbuf[spip->txidx] : 0x00;
+    spip->txidx++;
+  }
 
   return HAL_RET_SUCCESS;
 }
@@ -351,7 +372,7 @@ msg_t spi_lld_receive(SPIDriver *spip, size_t n, void *rxbuf) {
  */
 msg_t spi_lld_stop_transfer(SPIDriver *spip, size_t *sizep) {
 
-  SPI_FIFO_FRESET(spip);
+  spi_lld_fifo_reset(spip);
 
   if (sizep != NULL) {
     *sizep = spip->count - spip->idx;
